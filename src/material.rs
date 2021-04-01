@@ -1,15 +1,15 @@
 use wgpu::*;
 use wgpu::util::DeviceExt;
-use mint::Vector3;
 use glam::Vec3;
-use crevice::std140::{AsStd140, Std140};
+use bytemuck::{Pod, Zeroable};
 
-#[derive(AsStd140)]
+#[repr(C)]
+#[derive(Copy, Clone, Debug, Pod, Zeroable)]
 pub struct Material {
     alpha: f32,
     k_s: f32,
     eta: f32,
-    diffuse: Vector3<f32>,
+    diffuse: Vec3,
 }
 
 impl Material {
@@ -18,14 +18,14 @@ impl Material {
             alpha,
             k_s,
             eta,
-            diffuse: diffuse.into(),
+            diffuse,
         }
     }
 
     pub fn to_buffer(&self, device: &Device) -> Buffer {
         device.create_buffer_init(&util::BufferInitDescriptor {
             label: None,
-            contents: self.as_std140().as_bytes(),
+            contents: bytemuck::bytes_of(self),
             usage: BufferUsage::UNIFORM,
         })
     }

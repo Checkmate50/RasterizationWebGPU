@@ -12,7 +12,7 @@ impl Texture {
             size: Extent3d {
                 width,
                 height,
-                depth: 1,
+                depth_or_array_layers: 1,
             },
             mip_level_count: 1,
             sample_count: 1,

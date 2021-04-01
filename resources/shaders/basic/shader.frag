@@ -4,7 +4,6 @@ const float PI = 3.14159265358979323846264;
 
 layout(location = 0) in vec3 v_normal;
 layout(location = 1) in vec3 v_position;
-layout(location = 2) in mat4 view_mat;
 layout(location = 0) out vec4 f_color;
 
 layout(set = 2, binding = 0) uniform light_uniforms {
@@ -19,8 +18,8 @@ layout(set = 1, binding = 1) uniform material {
   vec3 diffuse;
 };
 
-layout(set = 0, binding = 0) uniform cam_pos {
-    vec3 camera_position;
+layout(set = 0, binding = 1) uniform cam_pos {
+  vec3 camera_position;
 };
 
 // The Fresnel reflection factor
@@ -97,10 +96,8 @@ float isotropicMicrofacet(vec3 i, vec3 o, vec3 n, float eta, float alpha) {
 
 void main() {
   vec3 normal = normalize(v_normal);
-  // todo: figure out why this works, optimize
-  vec3 cam_pos = (inverse(view_mat) * vec4(camera_position, 1.0)).xyz;
   vec3 w_i = light_position - v_position;
-  vec3 w_o = normalize(cam_pos - v_position);
+  vec3 w_o = normalize(camera_position - v_position);
   float r2 = dot(w_i, w_i);
   w_i = normalize(w_i);
 

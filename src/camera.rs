@@ -55,8 +55,7 @@ impl Camera {
 
         let pos_buffer = device.create_buffer_init(&util::BufferInitDescriptor {
             label: None,
-           // contents: bytemuck::bytes_of(&(view_mat.inverse() * eye.extend(1.0))),
-            contents: bytemuck::bytes_of(&eye.extend(1.0)),
+            contents: bytemuck::bytes_of(&eye),
             usage: BufferUsage::UNIFORM | BufferUsage::COPY_DST,
         });
 
@@ -115,8 +114,7 @@ impl Camera {
         let u_view = self.get_view_mat();
         let u_proj = self.get_proj_mat();
         queue.write_buffer(&self.mat_buffer, 0, bytemuck::cast_slice(&[u_view, u_proj]));
-        //queue.write_buffer(&self.pos_buffer, 0, bytemuck::bytes_of(&(u_view.inverse() * self.eye.extend(1.0))));
-        queue.write_buffer(&self.pos_buffer, 0, bytemuck::bytes_of(&self.eye.extend(1.0)));
+        queue.write_buffer(&self.pos_buffer, 0, bytemuck::bytes_of(&self.eye));
     }
 
     pub fn get_view_mat(&self) -> Mat4 {

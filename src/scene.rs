@@ -42,7 +42,7 @@ impl Scene {
                 Light::Point { position, power, .. } => {
                     let buffer = device.create_buffer_init(&util::BufferInitDescriptor {
                         label: None,
-                        contents: bytemuck::cast_slice(&[power.extend(0.0), position.extend(0.0)]),
+                        contents: bytemuck::cast_slice(&[power, position]),
                         usage: BufferUsage::UNIFORM,
                     });
 

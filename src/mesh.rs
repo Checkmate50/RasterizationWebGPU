@@ -95,12 +95,12 @@ impl Mesh {
             step_mode: InputStepMode::default(),
             attributes: &[
                 VertexAttribute {
-                    format: VertexFormat::Float3,
+                    format: VertexFormat::Float32x3,
                     offset: 0,
                     shader_location: 0,
                 },
                 VertexAttribute {
-                    format: VertexFormat::Float3,
+                    format: VertexFormat::Float32x3,
                     offset: std::mem::size_of::<[f32; 3]>() as BufferAddress,
                     shader_location: 1,
                 }
