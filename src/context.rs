@@ -17,8 +17,12 @@ pub struct Uniforms {
 pub struct Context {
     device: Device,
     swap_chain: SwapChain,
-    pipeline: RenderPipeline,
+    deferred_pipeline: RenderPipeline,
+    shading_pipeline: RenderPipeline,
     depth_texture: Texture,
+    material_texture: Texture,
+    diffuse_texture: Texture,
+    normal_texture: Texture,
     pub scene: Scene,
     pub queue: Queue,
 }
@@ -41,7 +45,16 @@ impl Context {
                     compatible_surface: Some(&surface),
                 }
             ).await.ok_or(anyhow!("Couldn't get adapter"))?;
-            let (device, queue) = adapter.request_device(&DeviceDescriptor::default(), None).await?;
+            let (device, queue) = adapter.request_device(
+                &DeviceDescriptor{
+                    limits: wgpu::Limits {
+                        max_bind_groups: 6,
+                        ..Default::default()
+                    },
+                    ..Default::default()
+                },
+                Some(&std::path::Path::new("path"))
+                ).await?;
             let format = adapter.get_swap_chain_preferred_format(&surface).ok_or(anyhow!("Incompatible surface!"))?;
 
             // create swap chain
@@ -54,26 +67,6 @@ impl Context {
             });
 
             (device, queue, swap_chain, format)
-        };
-
-
-        // load and translate the shader modules into spirv
-        let (vert_module, frag_module) = {
-            let vert_str = std::fs::read_to_string("resources/shaders/basic_wgsl/vertex.wgsl")?;
-            let vert_module = device.create_shader_module(&ShaderModuleDescriptor {
-                label: None,
-                source: ShaderSource::Wgsl(Cow::Borrowed(&vert_str)),
-                flags: ShaderFlags::default(),
-            });
-
-            let frag_str = std::fs::read_to_string("resources/shaders/basic_wgsl/fragment.wgsl")?;
-            let frag_module = device.create_shader_module(&ShaderModuleDescriptor {
-                label: None,
-                source: ShaderSource::Wgsl(Cow::Borrowed(&frag_str)),
-                flags: ShaderFlags::default(),
-            });
-
-            (vert_module, frag_module)
         };
 
         let object_layout = device.create_bind_group_layout(&BindGroupLayoutDescriptor {
@@ -121,39 +114,54 @@ impl Context {
         // load mesh
         let scene = Scene::from_gltf(&device, &object_layout, &light_layout)?;
 
-        // set up pipeline
-        let layout = device.create_pipeline_layout(&PipelineLayoutDescriptor {
+        let deferred_layout = device.create_pipeline_layout(&PipelineLayoutDescriptor {
             bind_group_layouts: &[
                 &scene.camera.layout,
                 &object_layout,
-                &light_layout,
             ],
             push_constant_ranges: &[],
             label: None,
         });
 
-        let depth_texture = Texture::create_depth_texture(&device, width, height);
+        let deferred_shader = {
+            let shader_str = std::fs::read_to_string("resources/shaders/wgsl/deferred.wgsl")?;
+            device.create_shader_module(&ShaderModuleDescriptor {
+                label: Some("deferred module"),
+                source: ShaderSource::Wgsl(Cow::Borrowed(&shader_str)),
+                flags: ShaderFlags::default(),
+            })
+        };
 
-        let pipeline = device.create_render_pipeline(&RenderPipelineDescriptor {
+        let deferred_pipeline = device.create_render_pipeline(&RenderPipelineDescriptor {
             vertex: VertexState {
-                module: &vert_module,
-                entry_point: "main",
+                module: &deferred_shader,
+                entry_point: "vs_main",
                 buffers: &[
                     scene.meshes[0].get_vertex_desc(),
                 ],
             },
             fragment: Some(FragmentState {
-                module: &frag_module,
-                entry_point: "main",
+                module: &deferred_shader,
+                entry_point: "fs_main",
                 targets: &[
                     ColorTargetState {
-                        format,
+                        format: TextureFormat::Rgba32Float,
                         blend: None,
                         write_mask: ColorWrite::default(),
-                    }
+                    },
+                    ColorTargetState {
+                        format: TextureFormat::Rgba32Float,
+                        blend: None,
+                        write_mask: ColorWrite::default(),
+                    },
+                    ColorTargetState {
+                        format: TextureFormat::Rgba32Float,
+                        blend: None,
+                        write_mask: ColorWrite::default(),
+                    },
                 ],
             }),
-            layout: Some(&layout),
+            layout: Some(&deferred_layout),
             primitive: PrimitiveState::default(),
             multisample: MultisampleState::default(),
             depth_stencil: Some(DepthStencilState {
@@ -164,14 +172,120 @@ impl Context {
                 bias: DepthBiasState::default(),
                 clamp_depth: false,
             }),
+            label: Some("deferred pipeline"),
+        });
+
+        let texture_layout = device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+            entries: &[
+                BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: ShaderStage::FRAGMENT,
+                    ty: BindingType::Texture {
+                        sample_type: TextureSampleType::Float { filterable: false },
+                        view_dimension: TextureViewDimension::D2,
+                        multisampled: false,
+                    },
+                    count: None,
+                },
+                BindGroupLayoutEntry {
+                    binding: 1,
+                    visibility: ShaderStage::FRAGMENT,
+                    ty: BindingType::Sampler {
+                        filtering: false,
+                        comparison: false,
+                    },
+                    count: None,
+                }
+            ],
             label: None,
         });
+
+        let depth_layout = device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+            entries: &[
+                BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: ShaderStage::FRAGMENT,
+                    ty: BindingType::Texture {
+                        sample_type: TextureSampleType::Depth,
+                        view_dimension: TextureViewDimension::D2,
+                        multisampled: false,
+                    },
+                    count: None,
+                },
+                BindGroupLayoutEntry {
+                    binding: 1,
+                    visibility: ShaderStage::FRAGMENT,
+                    ty: BindingType::Sampler {
+                        filtering: false,
+                        comparison: false,
+                    },
+                    count: None,
+                }
+            ],
+            label: None,
+        });
+
+        let shading_layout = device.create_pipeline_layout(&PipelineLayoutDescriptor {
+            bind_group_layouts: &[
+                &scene.camera.layout,
+                &light_layout,
+                &texture_layout,
+                &texture_layout,
+                &texture_layout,
+                &depth_layout,
+            ],
+            push_constant_ranges: &[],
+            label: None,
+        });
+
+        let shading_shader = {
+            let shader_str = std::fs::read_to_string("resources/shaders/wgsl/shading.wgsl")?;
+            device.create_shader_module(&ShaderModuleDescriptor {
+                label: Some("shading module"),
+                source: ShaderSource::Wgsl(Cow::Borrowed(&shader_str)),
+                flags: ShaderFlags::VALIDATION,
+            })
+        };
+
+        let shading_pipeline = device.create_render_pipeline(&RenderPipelineDescriptor {
+            vertex: VertexState {
+                module: &shading_shader,
+                entry_point: "vs_main",
+                buffers: &[],
+            },
+            fragment: Some(FragmentState {
+                module: &shading_shader,
+                entry_point: "fs_main",
+                targets: &[
+                    ColorTargetState {
+                        format,
+                        blend: None,
+                        write_mask: ColorWrite::default(),
+                    },
+                ],
+            }),
+            layout: Some(&shading_layout),
+            primitive: PrimitiveState::default(),
+            multisample: MultisampleState::default(),
+            depth_stencil: None,
+            label: Some("shading pipeline"),
+        });
+
+        let diffuse_texture = Texture::create_window_texture(&device, &texture_layout, width, height);
+        let material_texture = Texture::create_window_texture(&device, &texture_layout, width, height);
+        let normal_texture = Texture::create_window_texture(&device, &texture_layout, width, height);
+        let depth_texture = Texture::create_depth_texture(&device, &depth_layout, width, height);
+
 
         Ok(Self {
             device,
             queue,
             swap_chain,
-            pipeline,
+            deferred_pipeline,
+            shading_pipeline,
+            material_texture,
+            diffuse_texture,
+            normal_texture,
             scene,
             depth_texture,
         })
@@ -196,6 +310,48 @@ impl Context {
                 color_attachments: &[
                     RenderPassColorAttachment {
                         resolve_target: None,
+                        view: &self.diffuse_texture.view,
+                        ops: Operations {
+                            load: LoadOp::Clear(Color::BLACK),
+                            store: true,
+                        }
+                    },
+                    RenderPassColorAttachment {
+                        resolve_target: None,
+                        view: &self.material_texture.view,
+                        ops: Operations {
+                            load: LoadOp::Clear(Color::BLACK),
+                            store: true,
+                        }
+                    },
+                    RenderPassColorAttachment {
+                        resolve_target: None,
+                        view: &self.normal_texture.view,
+                        ops: Operations {
+                            load: LoadOp::Clear(Color::BLACK),
+                            store: true,
+                        }
+                    },
+                ],
+            });
+
+            render_pass.set_pipeline(&self.deferred_pipeline);
+            render_pass.set_bind_group(0, &self.scene.camera.bind_group, &[]);
+            for mesh in &self.scene.meshes {
+                render_pass.set_bind_group(1, &mesh.bind_group, &[]);
+                render_pass.set_vertex_buffer(0, mesh.vertices.slice(..));
+                render_pass.set_index_buffer(mesh.indices.slice(..), IndexFormat::Uint32);
+                render_pass.draw_indexed(0..mesh.length, 0, 0..1);
+            }
+        }
+
+        {
+            let mut render_pass = encoder.begin_render_pass(&RenderPassDescriptor {
+                label: None,
+                depth_stencil_attachment: None,
+                color_attachments: &[
+                    RenderPassColorAttachment {
+                        resolve_target: None,
                         view: &frame.view,
                         ops: Operations {
                             load: LoadOp::Clear(Color::BLACK),
@@ -205,15 +361,14 @@ impl Context {
                 ],
             });
 
-            render_pass.set_pipeline(&self.pipeline);
+            render_pass.set_pipeline(&self.shading_pipeline);
             render_pass.set_bind_group(0, &self.scene.camera.bind_group, &[]);
-            render_pass.set_bind_group(2, &self.scene.light_bind_group, &[]);
-            for mesh in &self.scene.meshes {
-                render_pass.set_bind_group(1, &mesh.bind_group, &[]);
-                render_pass.set_vertex_buffer(0, mesh.vertices.slice(..));
-                render_pass.set_index_buffer(mesh.indices.slice(..), IndexFormat::Uint32);
-                render_pass.draw_indexed(0..mesh.length, 0, 0..1);
-            }
+            render_pass.set_bind_group(1, &self.scene.light_bind_group, &[]);
+            render_pass.set_bind_group(2, &self.diffuse_texture.bind_group, &[]);
+            render_pass.set_bind_group(3, &self.normal_texture.bind_group, &[]);
+            render_pass.set_bind_group(4, &self.material_texture.bind_group, &[]);
+            render_pass.set_bind_group(5, &self.depth_texture.bind_group, &[]);
+            render_pass.draw(0..4, 0..1);
         }
 
         self.queue.submit(Some(encoder.finish()));

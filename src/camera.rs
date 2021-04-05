@@ -49,13 +49,28 @@ impl Camera {
         let proj_mat = Mat4::perspective_rh(vfov, aspect, near, far);
         let mat_buffer = device.create_buffer_init(&util::BufferInitDescriptor {
             label: None,
-            contents: bytemuck::cast_slice(&[view_mat, proj_mat]),
+            contents: bytemuck::cast_slice(&[proj_mat, view_mat]),
             usage: BufferUsage::UNIFORM | BufferUsage::COPY_DST,
         });
 
+        let inv_proj_mat = proj_mat.inverse();
+        let inv_view_mat = view_mat.inverse();
+
+        let slice = [
+            inv_proj_mat.col(0),
+            inv_proj_mat.col(1),
+            inv_proj_mat.col(2),
+            inv_proj_mat.col(3),
+            inv_view_mat.col(0),
+            inv_view_mat.col(1),
+            inv_view_mat.col(2),
+            inv_view_mat.col(3),
+            eye.extend(1.0),
+        ];
+
         let pos_buffer = device.create_buffer_init(&util::BufferInitDescriptor {
             label: None,
-            contents: bytemuck::bytes_of(&eye),
+            contents: bytemuck::cast_slice(&slice),
             usage: BufferUsage::UNIFORM | BufferUsage::COPY_DST,
         });
 
@@ -111,10 +126,24 @@ impl Camera {
         self.eye = mat * self.eye;
         self.target = mat * self.target;
         self.up = mat * self.up;
-        let u_view = self.get_view_mat();
         let u_proj = self.get_proj_mat();
-        queue.write_buffer(&self.mat_buffer, 0, bytemuck::cast_slice(&[u_view, u_proj]));
-        queue.write_buffer(&self.pos_buffer, 0, bytemuck::bytes_of(&self.eye));
+        let u_view = self.get_view_mat();
+        let inv_u_proj = u_proj.inverse();
+        let inv_u_view = u_view.inverse();
+
+        let slice = [
+            inv_u_proj.col(0),
+            inv_u_proj.col(1),
+            inv_u_proj.col(2),
+            inv_u_proj.col(3),
+            inv_u_view.col(0),
+            inv_u_view.col(1),
+            inv_u_view.col(2),
+            inv_u_view.col(3),
+            self.eye.extend(1.0),
+        ];
+        queue.write_buffer(&self.mat_buffer, 0, bytemuck::cast_slice(&[u_proj, u_view]));
+        queue.write_buffer(&self.pos_buffer, 0, bytemuck::cast_slice(&slice));
     }
 
     pub fn get_view_mat(&self) -> Mat4 {

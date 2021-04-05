@@ -1,0 +1,23 @@
+[
+    {
+        "node": "Point_001",
+        "type": "Point",
+        "position": [0, 0, 0],
+        "power": [25, 25, 25]
+    },
+    {
+        "node": "Area",
+        "type": "Area",
+        "position": [0, 0, 0],
+        "normal": [0, -1, 0],
+        "up": [0, 0, -1],
+        "size": [3.2, 3.4],
+        "power": [1000, 1000, 1000]
+    },
+    {
+        "node": "Ambient",
+        "type": "Ambient",
+        "radiance": [0.25, 0.25, 0.25],
+        "range": 1.0
+    }
+]
