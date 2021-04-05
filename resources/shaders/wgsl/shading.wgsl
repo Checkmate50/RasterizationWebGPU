@@ -144,9 +144,11 @@ fn fs_main(in: VertexOutput) -> [[location(0)]] vec4<f32> {
     const normal = textureSample(normal_texture, normal_sampler, in.tex_coords).xyz;
     const material = textureSample(material_texture, material_sampler, in.tex_coords).xyz;
     const depth = textureSample(depth_texture, depth_sampler, in.tex_coords);
+
     const view_position_tmp = camera.inv_proj * vec4<f32>(in.tex_coords.x * 2.0 - 1.0, (1.0 - in.tex_coords.y) * 2.0 - 1.0, depth, 1.0);
     const view_position = view_position_tmp.xyz * (1.0 / view_position_tmp.w);
     const position = (camera.inv_view * vec4<f32>(view_position, 1.0)).xyz;
+
     var w_i: vec3<f32> = light.position - position;
     const w_o = normalize(camera.position - position);
     const r2 = dot(w_i, w_i);

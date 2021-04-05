@@ -69,213 +69,222 @@ impl Context {
             (device, queue, swap_chain, format)
         };
 
-        let object_layout = device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-            entries: &[
-                BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: ShaderStage::VERTEX,
-                    ty: BindingType::Buffer {
-                        ty: BufferBindingType::Uniform,
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
+        // create required layouts
+        let (object_layout, light_layout, texture_layout, depth_layout) = {
+            let object_layout = device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+                entries: &[
+                    BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: ShaderStage::VERTEX,
+                        ty: BindingType::Buffer {
+                            ty: BufferBindingType::Uniform,
+                            has_dynamic_offset: false,
+                            min_binding_size: None,
+                        },
+                        count: None,
                     },
-                    count: None,
-                },
-                BindGroupLayoutEntry {
-                    binding: 1,
-                    visibility: ShaderStage::FRAGMENT,
-                    ty: BindingType::Buffer {
-                        ty: BufferBindingType::Uniform,
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-                    count: None,
-                }
-            ],
-            label: None,
-        });
+                    BindGroupLayoutEntry {
+                        binding: 1,
+                        visibility: ShaderStage::FRAGMENT,
+                        ty: BindingType::Buffer {
+                            ty: BufferBindingType::Uniform,
+                            has_dynamic_offset: false,
+                            min_binding_size: None,
+                        },
+                        count: None,
+                    }
+                ],
+                label: None,
+            });
 
-        let light_layout = device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-            entries: &[
-                BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: ShaderStage::FRAGMENT,
-                    ty: BindingType::Buffer {
-                        ty: BufferBindingType::Uniform,
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
+            let light_layout = device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+                entries: &[
+                    BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: ShaderStage::FRAGMENT,
+                        ty: BindingType::Buffer {
+                            ty: BufferBindingType::Uniform,
+                            has_dynamic_offset: false,
+                            min_binding_size: None,
+                        },
+                        count: None,
+                    }
+                ],
+                label: None,
+            });
+
+            let texture_layout = device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+                entries: &[
+                    BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: ShaderStage::FRAGMENT,
+                        ty: BindingType::Texture {
+                            sample_type: TextureSampleType::Float { filterable: false },
+                            view_dimension: TextureViewDimension::D2,
+                            multisampled: false,
+                        },
+                        count: None,
                     },
-                    count: None,
-                }
-            ],
-            label: None,
-        });
+                    BindGroupLayoutEntry {
+                        binding: 1,
+                        visibility: ShaderStage::FRAGMENT,
+                        ty: BindingType::Sampler {
+                            filtering: false,
+                            comparison: false,
+                        },
+                        count: None,
+                    }
+                ],
+                label: None,
+            });
+
+            let depth_layout = device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+                entries: &[
+                    BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: ShaderStage::FRAGMENT,
+                        ty: BindingType::Texture {
+                            sample_type: TextureSampleType::Depth,
+                            view_dimension: TextureViewDimension::D2,
+                            multisampled: false,
+                        },
+                        count: None,
+                    },
+                    BindGroupLayoutEntry {
+                        binding: 1,
+                        visibility: ShaderStage::FRAGMENT,
+                        ty: BindingType::Sampler {
+                            filtering: false,
+                            comparison: false,
+                        },
+                        count: None,
+                    }
+                ],
+                label: None,
+            });
+            (object_layout, light_layout, texture_layout, depth_layout)
+        };
 
         // load mesh
         let scene = Scene::from_gltf(&device, &object_layout, &light_layout)?;
 
-        let deferred_layout = device.create_pipeline_layout(&PipelineLayoutDescriptor {
-            bind_group_layouts: &[
-                &scene.camera.layout,
-                &object_layout,
-            ],
-            push_constant_ranges: &[],
-            label: None,
-        });
+        // set up deferred pipeline
+        let deferred_pipeline = {
+            let layout = device.create_pipeline_layout(&PipelineLayoutDescriptor {
+                bind_group_layouts: &[
+                    &scene.camera.layout,
+                    &object_layout,
+                ],
+                push_constant_ranges: &[],
+                label: None,
+            });
 
-        let deferred_shader = {
-            let shader_str = std::fs::read_to_string("resources/shaders/wgsl/deferred.wgsl")?;
-            device.create_shader_module(&ShaderModuleDescriptor {
-                label: Some("deferred module"),
-                source: ShaderSource::Wgsl(Cow::Borrowed(&shader_str)),
-                flags: ShaderFlags::default(),
+            let shader = {
+                let shader_str = std::fs::read_to_string("resources/shaders/wgsl/deferred.wgsl")?;
+                device.create_shader_module(&ShaderModuleDescriptor {
+                    label: Some("deferred module"),
+                    source: ShaderSource::Wgsl(Cow::Borrowed(&shader_str)),
+                    flags: ShaderFlags::default(),
+                })
+            };
+
+            device.create_render_pipeline(&RenderPipelineDescriptor {
+                vertex: VertexState {
+                    module: &shader,
+                    entry_point: "vs_main",
+                    buffers: &[
+                        scene.meshes[0].get_vertex_desc(),
+                    ],
+                },
+                fragment: Some(FragmentState {
+                    module: &shader,
+                    entry_point: "fs_main",
+                    targets: &[
+                        ColorTargetState {
+                            format: TextureFormat::Rgba32Float,
+                            blend: None,
+                            write_mask: ColorWrite::default(),
+                        },
+                        ColorTargetState {
+                            format: TextureFormat::Rgba32Float,
+                            blend: None,
+                            write_mask: ColorWrite::default(),
+                        },
+                        ColorTargetState {
+                            format: TextureFormat::Rgba32Float,
+                            blend: None,
+                            write_mask: ColorWrite::default(),
+                        },
+                    ],
+                }),
+                layout: Some(&layout),
+                primitive: PrimitiveState::default(),
+                multisample: MultisampleState::default(),
+                depth_stencil: Some(DepthStencilState {
+                    format: TextureFormat::Depth32Float,
+                    depth_write_enabled: true,
+                    depth_compare: CompareFunction::Less,
+                    stencil: StencilState::default(),
+                    bias: DepthBiasState::default(),
+                    clamp_depth: false,
+                }),
+                label: Some("deferred pipeline"),
             })
         };
 
-        let deferred_pipeline = device.create_render_pipeline(&RenderPipelineDescriptor {
-            vertex: VertexState {
-                module: &deferred_shader,
-                entry_point: "vs_main",
-                buffers: &[
-                    scene.meshes[0].get_vertex_desc(),
+        // set up shading pipeline
+        let shading_pipeline = {
+            let layout = device.create_pipeline_layout(&PipelineLayoutDescriptor {
+                bind_group_layouts: &[
+                    &scene.camera.layout,
+                    &light_layout,
+                    &texture_layout,
+                    &texture_layout,
+                    &texture_layout,
+                    &depth_layout,
                 ],
-            },
-            fragment: Some(FragmentState {
-                module: &deferred_shader,
-                entry_point: "fs_main",
-                targets: &[
-                    ColorTargetState {
-                        format: TextureFormat::Rgba32Float,
-                        blend: None,
-                        write_mask: ColorWrite::default(),
-                    },
-                    ColorTargetState {
-                        format: TextureFormat::Rgba32Float,
-                        blend: None,
-                        write_mask: ColorWrite::default(),
-                    },
-                    ColorTargetState {
-                        format: TextureFormat::Rgba32Float,
-                        blend: None,
-                        write_mask: ColorWrite::default(),
-                    },
-                ],
-            }),
-            layout: Some(&deferred_layout),
-            primitive: PrimitiveState::default(),
-            multisample: MultisampleState::default(),
-            depth_stencil: Some(DepthStencilState {
-                format: TextureFormat::Depth32Float,
-                depth_write_enabled: true,
-                depth_compare: CompareFunction::Less,
-                stencil: StencilState::default(),
-                bias: DepthBiasState::default(),
-                clamp_depth: false,
-            }),
-            label: Some("deferred pipeline"),
-        });
+                push_constant_ranges: &[],
+                label: None,
+            });
 
-        let texture_layout = device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-            entries: &[
-                BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: ShaderStage::FRAGMENT,
-                    ty: BindingType::Texture {
-                        sample_type: TextureSampleType::Float { filterable: false },
-                        view_dimension: TextureViewDimension::D2,
-                        multisampled: false,
-                    },
-                    count: None,
+            let shader = {
+                let shader_str = std::fs::read_to_string("resources/shaders/wgsl/shading.wgsl")?;
+                device.create_shader_module(&ShaderModuleDescriptor {
+                    label: Some("shading module"),
+                    source: ShaderSource::Wgsl(Cow::Borrowed(&shader_str)),
+                    flags: ShaderFlags::VALIDATION,
+                })
+            };
+
+            device.create_render_pipeline(&RenderPipelineDescriptor {
+                vertex: VertexState {
+                    module: &shader,
+                    entry_point: "vs_main",
+                    buffers: &[],
                 },
-                BindGroupLayoutEntry {
-                    binding: 1,
-                    visibility: ShaderStage::FRAGMENT,
-                    ty: BindingType::Sampler {
-                        filtering: false,
-                        comparison: false,
-                    },
-                    count: None,
-                }
-            ],
-            label: None,
-        });
-
-        let depth_layout = device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-            entries: &[
-                BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: ShaderStage::FRAGMENT,
-                    ty: BindingType::Texture {
-                        sample_type: TextureSampleType::Depth,
-                        view_dimension: TextureViewDimension::D2,
-                        multisampled: false,
-                    },
-                    count: None,
-                },
-                BindGroupLayoutEntry {
-                    binding: 1,
-                    visibility: ShaderStage::FRAGMENT,
-                    ty: BindingType::Sampler {
-                        filtering: false,
-                        comparison: false,
-                    },
-                    count: None,
-                }
-            ],
-            label: None,
-        });
-
-        let shading_layout = device.create_pipeline_layout(&PipelineLayoutDescriptor {
-            bind_group_layouts: &[
-                &scene.camera.layout,
-                &light_layout,
-                &texture_layout,
-                &texture_layout,
-                &texture_layout,
-                &depth_layout,
-            ],
-            push_constant_ranges: &[],
-            label: None,
-        });
-
-        let shading_shader = {
-            let shader_str = std::fs::read_to_string("resources/shaders/wgsl/shading.wgsl")?;
-            device.create_shader_module(&ShaderModuleDescriptor {
-                label: Some("shading module"),
-                source: ShaderSource::Wgsl(Cow::Borrowed(&shader_str)),
-                flags: ShaderFlags::VALIDATION,
+                fragment: Some(FragmentState {
+                    module: &shader,
+                    entry_point: "fs_main",
+                    targets: &[
+                        ColorTargetState {
+                            format,
+                            blend: None,
+                            write_mask: ColorWrite::default(),
+                        },
+                    ],
+                }),
+                layout: Some(&layout),
+                primitive: PrimitiveState::default(),
+                multisample: MultisampleState::default(),
+                depth_stencil: None,
+                label: Some("shading pipeline"),
             })
         };
-
-        let shading_pipeline = device.create_render_pipeline(&RenderPipelineDescriptor {
-            vertex: VertexState {
-                module: &shading_shader,
-                entry_point: "vs_main",
-                buffers: &[],
-            },
-            fragment: Some(FragmentState {
-                module: &shading_shader,
-                entry_point: "fs_main",
-                targets: &[
-                    ColorTargetState {
-                        format,
-                        blend: None,
-                        write_mask: ColorWrite::default(),
-                    },
-                ],
-            }),
-            layout: Some(&shading_layout),
-            primitive: PrimitiveState::default(),
-            multisample: MultisampleState::default(),
-            depth_stencil: None,
-            label: Some("shading pipeline"),
-        });
 
         let diffuse_texture = Texture::create_window_texture(&device, &texture_layout, width, height);
         let material_texture = Texture::create_window_texture(&device, &texture_layout, width, height);
         let normal_texture = Texture::create_window_texture(&device, &texture_layout, width, height);
         let depth_texture = Texture::create_depth_texture(&device, &depth_layout, width, height);
-
 
         Ok(Self {
             device,
