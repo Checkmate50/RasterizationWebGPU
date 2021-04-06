@@ -3,22 +3,13 @@ use anyhow::{Result, anyhow};
 use winit::window::Window;
 use crate::scene::Scene;
 use crate::texture::Texture;
-use bytemuck::{Pod, Zeroable};
-use glam::Mat4;
 use std::borrow::Cow;
-
-#[repr(C)]
-#[derive(Debug, Copy, Clone, Pod, Zeroable)]
-pub struct Uniforms {
-    view_mat: Mat4,
-    proj_mat: Mat4,
-}
 
 pub struct Context {
     device: Device,
     swap_chain: SwapChain,
-    deferred_pipeline: RenderPipeline,
-    shading_pipeline: RenderPipeline,
+    geometry_pipeline: RenderPipeline,
+    light_pipeline: RenderPipeline,
     depth_texture: Texture,
     material_texture: Texture,
     diffuse_texture: Texture,
@@ -48,7 +39,7 @@ impl Context {
             let (device, queue) = adapter.request_device(
                 &DeviceDescriptor{
                     limits: wgpu::Limits {
-                        max_bind_groups: 6,
+                        max_bind_groups: 6, // set max number of bind groups to 6 as it defaults to 4
                         ..Default::default()
                     },
                     ..Default::default()
@@ -168,8 +159,8 @@ impl Context {
         // load mesh
         let scene = Scene::from_gltf(&device, &object_layout, &light_layout)?;
 
-        // set up deferred pipeline
-        let deferred_pipeline = {
+        // set up geometry pipeline
+        let geometry_pipeline = {
             let layout = device.create_pipeline_layout(&PipelineLayoutDescriptor {
                 bind_group_layouts: &[
                     &scene.camera.layout,
@@ -180,9 +171,9 @@ impl Context {
             });
 
             let shader = {
-                let shader_str = std::fs::read_to_string("resources/shaders/wgsl/deferred.wgsl")?;
+                let shader_str = std::fs::read_to_string("resources/shaders/wgsl/geometry.wgsl")?;
                 device.create_shader_module(&ShaderModuleDescriptor {
-                    label: Some("deferred module"),
+                    label: Some("geometry module"),
                     source: ShaderSource::Wgsl(Cow::Borrowed(&shader_str)),
                     flags: ShaderFlags::default(),
                 })
@@ -228,12 +219,12 @@ impl Context {
                     bias: DepthBiasState::default(),
                     clamp_depth: false,
                 }),
-                label: Some("deferred pipeline"),
+                label: Some("geometry pipeline"),
             })
         };
 
-        // set up shading pipeline
-        let shading_pipeline = {
+        // set up light pipeline
+        let light_pipeline = {
             let layout = device.create_pipeline_layout(&PipelineLayoutDescriptor {
                 bind_group_layouts: &[
                     &scene.camera.layout,
@@ -248,9 +239,9 @@ impl Context {
             });
 
             let shader = {
-                let shader_str = std::fs::read_to_string("resources/shaders/wgsl/shading.wgsl")?;
+                let shader_str = std::fs::read_to_string("resources/shaders/wgsl/light.wgsl")?;
                 device.create_shader_module(&ShaderModuleDescriptor {
-                    label: Some("shading module"),
+                    label: Some("light module"),
                     source: ShaderSource::Wgsl(Cow::Borrowed(&shader_str)),
                     flags: ShaderFlags::VALIDATION,
                 })
@@ -277,7 +268,7 @@ impl Context {
                 primitive: PrimitiveState::default(),
                 multisample: MultisampleState::default(),
                 depth_stencil: None,
-                label: Some("shading pipeline"),
+                label: Some("light pipeline"),
             })
         };
 
@@ -290,8 +281,8 @@ impl Context {
             device,
             queue,
             swap_chain,
-            deferred_pipeline,
-            shading_pipeline,
+            geometry_pipeline,
+            light_pipeline,
             material_texture,
             diffuse_texture,
             normal_texture,
@@ -344,7 +335,7 @@ impl Context {
                 ],
             });
 
-            render_pass.set_pipeline(&self.deferred_pipeline);
+            render_pass.set_pipeline(&self.geometry_pipeline);
             render_pass.set_bind_group(0, &self.scene.camera.bind_group, &[]);
             for mesh in &self.scene.meshes {
                 render_pass.set_bind_group(1, &mesh.bind_group, &[]);
@@ -370,14 +361,14 @@ impl Context {
                 ],
             });
 
-            render_pass.set_pipeline(&self.shading_pipeline);
+            render_pass.set_pipeline(&self.light_pipeline);
             render_pass.set_bind_group(0, &self.scene.camera.bind_group, &[]);
             render_pass.set_bind_group(1, &self.scene.light_bind_group, &[]);
             render_pass.set_bind_group(2, &self.diffuse_texture.bind_group, &[]);
             render_pass.set_bind_group(3, &self.normal_texture.bind_group, &[]);
             render_pass.set_bind_group(4, &self.material_texture.bind_group, &[]);
             render_pass.set_bind_group(5, &self.depth_texture.bind_group, &[]);
-            render_pass.draw(0..4, 0..1);
+            render_pass.draw(0..3, 0..1);
         }
 
         self.queue.submit(Some(encoder.finish()));
