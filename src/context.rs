@@ -1,5 +1,5 @@
 use wgpu::*;
-use anyhow::{Result, anyhow};
+use anyhow::{Result, anyhow, Context as ErrorContext};
 use winit::window::Window;
 use crate::scene::Scene;
 use crate::texture::Texture;
@@ -10,10 +10,12 @@ pub struct Context {
     swap_chain: SwapChain,
     geometry_pipeline: RenderPipeline,
     light_pipeline: RenderPipeline,
+    post_pipeline: RenderPipeline,
     depth_texture: Texture,
     material_texture: Texture,
     diffuse_texture: Texture,
     normal_texture: Texture,
+    screen_texture: Texture,
     pub scene: Scene,
     pub queue: Queue,
 }
@@ -171,7 +173,7 @@ impl Context {
             });
 
             let shader = {
-                let shader_str = std::fs::read_to_string("resources/shaders/wgsl/geometry.wgsl")?;
+                let shader_str = std::fs::read_to_string("resources/shaders/wgsl/geometry.wgsl").context("Failed to open geometry shader file")?;
                 device.create_shader_module(&ShaderModuleDescriptor {
                     label: Some("geometry module"),
                     source: ShaderSource::Wgsl(Cow::Borrowed(&shader_str)),
@@ -239,9 +241,62 @@ impl Context {
             });
 
             let shader = {
-                let shader_str = std::fs::read_to_string("resources/shaders/wgsl/light.wgsl")?;
+                let shader_str = std::fs::read_to_string("resources/shaders/wgsl/light.wgsl").context("Failed to open light shader file")?;
                 device.create_shader_module(&ShaderModuleDescriptor {
                     label: Some("light module"),
+                    source: ShaderSource::Wgsl(Cow::Borrowed(&shader_str)),
+                    flags: ShaderFlags::VALIDATION,
+                })
+            };
+
+            let blend_component = BlendComponent {
+                operation: BlendOperation::Add,
+                src_factor: BlendFactor::One,
+                dst_factor: BlendFactor::One,
+            };
+
+            device.create_render_pipeline(&RenderPipelineDescriptor {
+                vertex: VertexState {
+                    module: &shader,
+                    entry_point: "vs_main",
+                    buffers: &[],
+                },
+                fragment: Some(FragmentState {
+                    module: &shader,
+                    entry_point: "fs_main",
+                    targets: &[
+                        ColorTargetState {
+                            format: TextureFormat::Rgba32Float,
+                            blend: Some(BlendState {
+                                color: blend_component.clone(),
+                                alpha: blend_component,
+                            }),
+                            write_mask: ColorWrite::default(),
+                        },
+                    ],
+                }),
+                layout: Some(&layout),
+                primitive: PrimitiveState::default(),
+                multisample: MultisampleState::default(),
+                depth_stencil: None,
+                label: Some("light pipeline"),
+            })
+        };
+
+        // set up postprocess pipeline
+        let post_pipeline = {
+            let layout = device.create_pipeline_layout(&PipelineLayoutDescriptor {
+                bind_group_layouts: &[
+                    &texture_layout,
+                ],
+                push_constant_ranges: &[],
+                label: None,
+            });
+
+            let shader = {
+                let shader_str = std::fs::read_to_string("resources/shaders/wgsl/post.wgsl").context("Failed to open post shader file")?;
+                device.create_shader_module(&ShaderModuleDescriptor {
+                    label: Some("post module"),
                     source: ShaderSource::Wgsl(Cow::Borrowed(&shader_str)),
                     flags: ShaderFlags::VALIDATION,
                 })
@@ -268,13 +323,15 @@ impl Context {
                 primitive: PrimitiveState::default(),
                 multisample: MultisampleState::default(),
                 depth_stencil: None,
-                label: Some("light pipeline"),
+                label: Some("post pipeline"),
             })
         };
+
 
         let diffuse_texture = Texture::create_window_texture(&device, &texture_layout, width, height);
         let material_texture = Texture::create_window_texture(&device, &texture_layout, width, height);
         let normal_texture = Texture::create_window_texture(&device, &texture_layout, width, height);
+        let screen_texture = Texture::create_window_texture(&device, &texture_layout, width, height);
         let depth_texture = Texture::create_depth_texture(&device, &depth_layout, width, height);
 
         Ok(Self {
@@ -283,9 +340,11 @@ impl Context {
             swap_chain,
             geometry_pipeline,
             light_pipeline,
+            post_pipeline,
             material_texture,
             diffuse_texture,
             normal_texture,
+            screen_texture,
             scene,
             depth_texture,
         })
@@ -352,7 +411,7 @@ impl Context {
                 color_attachments: &[
                     RenderPassColorAttachment {
                         resolve_target: None,
-                        view: &frame.view,
+                        view: &self.screen_texture.view,
                         ops: Operations {
                             load: LoadOp::Clear(Color::BLACK),
                             store: true,
@@ -363,11 +422,34 @@ impl Context {
 
             render_pass.set_pipeline(&self.light_pipeline);
             render_pass.set_bind_group(0, &self.scene.camera.bind_group, &[]);
-            render_pass.set_bind_group(1, &self.scene.light_bind_group, &[]);
             render_pass.set_bind_group(2, &self.diffuse_texture.bind_group, &[]);
             render_pass.set_bind_group(3, &self.normal_texture.bind_group, &[]);
             render_pass.set_bind_group(4, &self.material_texture.bind_group, &[]);
             render_pass.set_bind_group(5, &self.depth_texture.bind_group, &[]);
+            for light in &self.scene.lights {
+                render_pass.set_bind_group(1, light, &[]);
+                render_pass.draw(0..3, 0..1);
+            }
+        }
+
+        {
+            let mut render_pass = encoder.begin_render_pass(&RenderPassDescriptor {
+                label: None,
+                depth_stencil_attachment: None,
+                color_attachments: &[
+                    RenderPassColorAttachment {
+                        resolve_target: None,
+                        view: &frame.view,
+                        ops: Operations {
+                            load: LoadOp::Clear(Color::BLACK),
+                            store: true,
+                        }
+                    }
+                ],
+            });
+
+            render_pass.set_pipeline(&self.post_pipeline);
+            render_pass.set_bind_group(0, &self.screen_texture.bind_group, &[]);
             render_pass.draw(0..3, 0..1);
         }
 

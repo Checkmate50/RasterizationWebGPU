@@ -1,11 +1,15 @@
+use wgpu::*;
+use wgpu::util::DeviceExt;
 use serde::{Serialize, Deserialize};
 use glam::{Vec3, Vec2, Mat4};
 use std::path::Path;
 use anyhow::Result;
+use crevice::std140::{AsStd140, Std140};
+use mint::Vector3;
 
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(tag = "type")]
-pub enum Light {
+pub enum LightJSON {
     Point {
         node: String,
         position: Vec3,
@@ -30,7 +34,7 @@ pub enum Light {
     },
 }
 
-impl Light {
+impl LightJSON {
     pub fn from_bytes(bytes: &[u8]) -> Result<Vec<Self>> {
         Ok(serde_json::from_slice(&bytes)?) // kinda weird
     }
@@ -42,16 +46,16 @@ impl Light {
 
     pub fn get_node(&self) -> &str {
         match self {
-            Light::Point { node, ..} | Light::Area { node, .. } | Light::Ambient { node, .. } => node
+            LightJSON::Point { node, ..} | LightJSON::Area { node, .. } | LightJSON::Ambient { node, .. } => node
         }
     }
 
     pub fn apply_matrix(&mut self, mat: Mat4) {
         match self {
-            Light::Point { position, .. } => {
+            LightJSON::Point { position, .. } => {
                 *position = mat.transform_point3(*position);
             },
-            Light::Area { position, normal, up, u, v, .. } => {
+            LightJSON::Area { position, normal, up, u, v, .. } => {
                 *position = mat.transform_point3(*position);
                 *normal = mat.transform_vector3(*normal);
                 *up = mat.transform_vector3(*up);
@@ -60,8 +64,41 @@ impl Light {
                 *u = up.cross(*normal).normalize();
                 *v = normal.cross(*u);
             },
-            Light::Ambient { .. } => (),
+            LightJSON::Ambient { .. } => (),
         }
     }
 }
 
+#[derive(AsStd140)]
+pub struct Light {
+    power: Vector3<f32>,
+    position: Vector3<f32>,
+}
+
+impl Light {
+    pub fn new(position: Vec3, power: Vec3) -> Self {
+        Self {
+            position: position.into(),
+            power: power.into(),
+        }
+    }
+
+    pub fn to_bind_group(self, device: &Device, layout: &BindGroupLayout) -> BindGroup {
+        let buffer = device.create_buffer_init(&util::BufferInitDescriptor {
+            label: None,
+            contents: self.as_std140().as_bytes(),
+            usage: BufferUsage::UNIFORM,
+        });
+
+        device.create_bind_group(&BindGroupDescriptor {
+            layout: layout,
+            entries: &[
+                BindGroupEntry {
+                    binding: 0,
+                    resource: buffer.as_entire_binding(),
+                }
+            ],
+            label: None,
+        })
+    }
+}
