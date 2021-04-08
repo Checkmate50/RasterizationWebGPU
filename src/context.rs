@@ -9,13 +9,15 @@ pub struct Context {
     device: Device,
     swap_chain: SwapChain,
     geometry_pipeline: RenderPipeline,
-    light_pipeline: RenderPipeline,
+    shading_pipeline: RenderPipeline,
     post_pipeline: RenderPipeline,
+    shadow_pipeline: RenderPipeline,
     depth_texture: Texture,
     material_texture: Texture,
     diffuse_texture: Texture,
     normal_texture: Texture,
     screen_texture: Texture,
+    light_depth_textures: Vec<Texture>,
     pub scene: Scene,
     pub queue: Queue,
 }
@@ -41,7 +43,7 @@ impl Context {
             let (device, queue) = adapter.request_device(
                 &DeviceDescriptor{
                     limits: wgpu::Limits {
-                        max_bind_groups: 6, // set max number of bind groups to 6 as it defaults to 4
+                        max_bind_groups: 8, // set max number of bind groups to 6 as it defaults to 4
                         ..Default::default()
                     },
                     ..Default::default()
@@ -63,7 +65,7 @@ impl Context {
         };
 
         // create required layouts
-        let (object_layout, light_layout, texture_layout, depth_layout) = {
+        let (object_layout, light_layout, texture_layout, depth_layout, depth_layout_comparison) = {
             let object_layout = device.create_bind_group_layout(&BindGroupLayoutDescriptor {
                 entries: &[
                     BindGroupLayoutEntry {
@@ -94,7 +96,7 @@ impl Context {
                 entries: &[
                     BindGroupLayoutEntry {
                         binding: 0,
-                        visibility: ShaderStage::FRAGMENT,
+                        visibility: ShaderStage::VERTEX | ShaderStage::FRAGMENT,
                         ty: BindingType::Buffer {
                             ty: BufferBindingType::Uniform,
                             has_dynamic_offset: false,
@@ -155,7 +157,32 @@ impl Context {
                 ],
                 label: None,
             });
-            (object_layout, light_layout, texture_layout, depth_layout)
+
+            let depth_layout_comparison = device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+                entries: &[
+                    BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: ShaderStage::FRAGMENT,
+                        ty: BindingType::Texture {
+                            sample_type: TextureSampleType::Depth,
+                            view_dimension: TextureViewDimension::D2,
+                            multisampled: false,
+                        },
+                        count: None,
+                    },
+                    BindGroupLayoutEntry {
+                        binding: 1,
+                        visibility: ShaderStage::FRAGMENT,
+                        ty: BindingType::Sampler {
+                            filtering: false,
+                            comparison: true,
+                        },
+                        count: None,
+                    }
+                ],
+                label: None,
+            });
+            (object_layout, light_layout, texture_layout, depth_layout, depth_layout_comparison)
         };
 
         // load mesh
@@ -225,8 +252,57 @@ impl Context {
             })
         };
 
+        // set up shadow pipeline
+        let shadow_pipeline = {
+            let layout = device.create_pipeline_layout(&PipelineLayoutDescriptor {
+                bind_group_layouts: &[
+                    &light_layout,
+                    &object_layout,
+                ],
+                push_constant_ranges: &[],
+                label: None,
+            });
+
+            let shader = {
+                let shader_str = std::fs::read_to_string("resources/shaders/wgsl/geometry.wgsl").context("Failed to open shadow shader file")?;
+                device.create_shader_module(&ShaderModuleDescriptor {
+                    label: Some("shadow module"),
+                    source: ShaderSource::Wgsl(Cow::Borrowed(&shader_str)),
+                    flags: ShaderFlags::default(),
+                })
+            };
+
+            device.create_render_pipeline(&RenderPipelineDescriptor {
+                vertex: VertexState {
+                    module: &shader,
+                    entry_point: "vs_main",
+                    buffers: &[
+                        scene.meshes[0].get_vertex_desc(),
+                    ],
+                },
+                fragment: None,
+                layout: Some(&layout),
+                primitive: PrimitiveState::default(),
+                multisample: MultisampleState::default(),
+                depth_stencil: Some(DepthStencilState {
+                    format: TextureFormat::Depth32Float,
+                    depth_write_enabled: true,
+                    depth_compare: CompareFunction::LessEqual,
+                    stencil: StencilState::default(),
+                    bias: DepthBiasState {
+                        constant: 2,
+                        slope_scale: 4.0,
+                        clamp: 0.0,
+                    },
+                    clamp_depth: false,
+                }),
+                label: Some("shadow pipeline"),
+            })
+        };
+
+
         // set up light pipeline
-        let light_pipeline = {
+        let shading_pipeline = {
             let layout = device.create_pipeline_layout(&PipelineLayoutDescriptor {
                 bind_group_layouts: &[
                     &scene.camera.layout,
@@ -235,15 +311,16 @@ impl Context {
                     &texture_layout,
                     &texture_layout,
                     &depth_layout,
+                    &depth_layout_comparison,
                 ],
                 push_constant_ranges: &[],
                 label: None,
             });
 
             let shader = {
-                let shader_str = std::fs::read_to_string("resources/shaders/wgsl/light.wgsl").context("Failed to open light shader file")?;
+                let shader_str = std::fs::read_to_string("resources/shaders/wgsl/shading.wgsl").context("Failed to open shading shader file")?;
                 device.create_shader_module(&ShaderModuleDescriptor {
-                    label: Some("light module"),
+                    label: Some("shading module"),
                     source: ShaderSource::Wgsl(Cow::Borrowed(&shader_str)),
                     flags: ShaderFlags::VALIDATION,
                 })
@@ -279,7 +356,7 @@ impl Context {
                 primitive: PrimitiveState::default(),
                 multisample: MultisampleState::default(),
                 depth_stencil: None,
-                label: Some("light pipeline"),
+                label: Some("shading pipeline"),
             })
         };
 
@@ -328,23 +405,30 @@ impl Context {
         };
 
 
+        // create required textures
         let diffuse_texture = Texture::create_window_texture(&device, &texture_layout, width, height);
         let material_texture = Texture::create_window_texture(&device, &texture_layout, width, height);
         let normal_texture = Texture::create_window_texture(&device, &texture_layout, width, height);
         let screen_texture = Texture::create_window_texture(&device, &texture_layout, width, height);
-        let depth_texture = Texture::create_depth_texture(&device, &depth_layout, width, height);
+        let depth_texture = Texture::create_depth_texture(&device, &depth_layout, width, height, None);
+
+        let light_depth_textures = (0..scene.lights.len()).map(|_| {
+            Texture::create_depth_texture(&device, &depth_layout_comparison, width, height, Some(CompareFunction::LessEqual))
+        }).collect();
 
         Ok(Self {
             device,
             queue,
             swap_chain,
             geometry_pipeline,
-            light_pipeline,
+            shading_pipeline,
+            shadow_pipeline,
             post_pipeline,
             material_texture,
             diffuse_texture,
             normal_texture,
             screen_texture,
+            light_depth_textures,
             scene,
             depth_texture,
         })
@@ -355,6 +439,7 @@ impl Context {
 
         let mut encoder = self.device.create_command_encoder(&CommandEncoderDescriptor::default());
 
+        // geometry pass
         {
             let mut render_pass = encoder.begin_render_pass(&RenderPassDescriptor {
                 label: None,
@@ -404,6 +489,32 @@ impl Context {
             }
         }
 
+        // shadow passes
+        for (texture, light) in self.light_depth_textures.iter().zip(&self.scene.lights) {
+            let mut render_pass = encoder.begin_render_pass(&RenderPassDescriptor {
+                label: None,
+                depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
+                    view: &texture.view,
+                    depth_ops: Some(Operations {
+                        load: LoadOp::Clear(1.0),
+                        store: true,
+                    }),
+                    stencil_ops: None,
+                }),
+                color_attachments: &[],
+            });
+
+            render_pass.set_pipeline(&self.shadow_pipeline);
+            render_pass.set_bind_group(0, &light.bind_group, &[]);
+            for mesh in &self.scene.meshes {
+                render_pass.set_bind_group(1, &mesh.bind_group, &[]);
+                render_pass.set_vertex_buffer(0, mesh.vertices.slice(..));
+                render_pass.set_index_buffer(mesh.indices.slice(..), IndexFormat::Uint32);
+                render_pass.draw_indexed(0..mesh.length, 0, 0..1);
+            }
+        }
+
+        // shading pass
         {
             let mut render_pass = encoder.begin_render_pass(&RenderPassDescriptor {
                 label: None,
@@ -420,18 +531,20 @@ impl Context {
                 ],
             });
 
-            render_pass.set_pipeline(&self.light_pipeline);
+            render_pass.set_pipeline(&self.shading_pipeline);
             render_pass.set_bind_group(0, &self.scene.camera.bind_group, &[]);
             render_pass.set_bind_group(2, &self.diffuse_texture.bind_group, &[]);
             render_pass.set_bind_group(3, &self.normal_texture.bind_group, &[]);
             render_pass.set_bind_group(4, &self.material_texture.bind_group, &[]);
             render_pass.set_bind_group(5, &self.depth_texture.bind_group, &[]);
-            for light in &self.scene.lights {
-                render_pass.set_bind_group(1, light, &[]);
+            for (texture, light) in self.light_depth_textures.iter().zip(&self.scene.lights) {
+                render_pass.set_bind_group(6, &texture.bind_group, &[]);
+                render_pass.set_bind_group(1, &light.bind_group, &[]);
                 render_pass.draw(0..3, 0..1);
             }
         }
 
+        // post pass
         {
             let mut render_pass = encoder.begin_render_pass(&RenderPassDescriptor {
                 label: None,

@@ -10,7 +10,7 @@ use gltf::{Node, buffer::Data};
 pub struct Scene {
     pub meshes: Vec<Mesh>,
     pub camera: Camera,
-    pub lights: Vec<BindGroup>,
+    pub lights: Vec<Light>,
 }
 
 impl Scene {
@@ -41,7 +41,7 @@ impl Scene {
         let lights = lights_raw.into_iter().filter_map(|light| {
             match light {
                 LightJSON::Point { position, power, .. } | LightJSON::Area { position, power, .. } => {
-                    Some(Light::new(position, power).to_bind_group(device, light_layout))
+                    Some(Light::new(position, power, device, light_layout))
                 },
                 _ => None,
             }

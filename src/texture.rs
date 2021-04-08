@@ -8,7 +8,7 @@ pub struct Texture {
 }
 
 impl Texture {
-    pub fn create_depth_texture(device: &Device, layout: &BindGroupLayout, width: u32, height: u32) -> Self {
+    pub fn create_depth_texture(device: &Device, layout: &BindGroupLayout, width: u32, height: u32, compare: Option<CompareFunction>) -> Self {
         let texture = device.create_texture(&TextureDescriptor {
             size: Extent3d {
                 width,
@@ -31,6 +31,7 @@ impl Texture {
             mipmap_filter: FilterMode::Nearest,
             lod_min_clamp: -100.0,
             lod_max_clamp: 100.0,
+            compare,
             ..Default::default()
         });
 

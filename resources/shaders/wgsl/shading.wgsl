@@ -35,6 +35,8 @@ var camera: Camera_Pos;
 
 [[block]]
 struct Light {
+    proj: mat4x4<f32>;
+    view: mat4x4<f32>;
     power: vec3<f32>;
     position: vec3<f32>;
 };
@@ -61,6 +63,11 @@ var material_sampler: sampler;
 var depth_texture: texture_depth_2d;
 [[group(5), binding(1)]]
 var depth_sampler: sampler;
+
+[[group(6), binding(0)]]
+var light_depth_texture: texture_depth_2d;
+[[group(6), binding(1)]]
+var light_depth_sampler: sampler_comparison;
 
 // The Fresnel reflection factor
 //   i -- incoming direction
@@ -120,7 +127,7 @@ fn D(m: vec3<f32>, n: vec3<f32>, alpha: f32) -> f32 {
 //   eta -- refractive index
 //   alpha -- surface roughness
 // return: scalar BRDF value
-fn isotropicMicrofacet(i: vec3<f32>, o: vec3<f32>, n: vec3<f32>, eta: f32, alpha: f32) -> f32 {
+fn isotropic_microfacet(i: vec3<f32>, o: vec3<f32>, n: vec3<f32>, eta: f32, alpha: f32) -> f32 {
     const odotn = dot(o, n);
     const m = normalize(i + o);
 
@@ -138,28 +145,48 @@ fn isotropicMicrofacet(i: vec3<f32>, o: vec3<f32>, n: vec3<f32>, eta: f32, alpha
     return F * G * D(m, n, alpha) / (4.0 * idotn * odotn);
 }
 
+fn get_world_position(tex_coords: vec2<f32>) -> vec3<f32> {
+    const depth = textureSample(depth_texture, depth_sampler, tex_coords);
+    const coords_ndc = vec2<f32>(tex_coords.x * 2.0 - 1.0, (1.0 - tex_coords.y) * 2.0 - 1.0);
+    const view_position_tmp = camera.inv_proj * vec4<f32>(coords_ndc, depth, 1.0);
+    const view_position = view_position_tmp.xyz * (1.0 / view_position_tmp.w);
+    return (camera.inv_view * vec4<f32>(view_position, 1.0)).xyz;
+}
+
+fn get_shadow(position: vec3<f32>) -> f32 {
+    // compute position in light space
+    const light_pos = light.proj * light.view * vec4<f32>(position, 1.0);
+
+    // vulkan's coordinate system is in [1, -1], [-1, 1], [0, 1] so we account for that
+    const flip = vec3<f32>(0.5, -0.5, 1.0);
+    const shadow_coords = light_pos.xyz * flip * (1.0 / light_pos.w) + vec3<f32>(0.5, 0.5, 0.0);
+
+    // get texture with comparison sampler
+    return textureSampleCompare(light_depth_texture, light_depth_sampler, shadow_coords.xy, shadow_coords.z);
+}
+
 [[stage(fragment)]]
 fn fs_main(in: VertexOutput) -> [[location(0)]] vec4<f32> {
     const diffuse = textureSample(diffuse_texture, diffuse_sampler, in.tex_coords).xyz;
     const normal = textureSample(normal_texture, normal_sampler, in.tex_coords).xyz;
     const material = textureSample(material_texture, material_sampler, in.tex_coords).xyz;
-    const depth = textureSample(depth_texture, depth_sampler, in.tex_coords);
+    const position = get_world_position(in.tex_coords);
+    const shadow = get_shadow(position);
+    var result: vec4<f32> = vec4<f32>(0.0, 0.0, 0.0, 1.0);
+    if (shadow == 1.0) {
+      var w_i: vec3<f32> = light.position - position;
+      const w_o = normalize(camera.position - position);
+      const r2 = dot(w_i, w_i);
+      w_i = normalize(w_i);
 
-    const view_position_tmp = camera.inv_proj * vec4<f32>(in.tex_coords.x * 2.0 - 1.0, (1.0 - in.tex_coords.y) * 2.0 - 1.0, depth, 1.0);
-    const view_position = view_position_tmp.xyz * (1.0 / view_position_tmp.w);
-    const position = (camera.inv_view * vec4<f32>(view_position, 1.0)).xyz;
+      const spec = material.y * isotropic_microfacet(w_i, w_o, normal, material.z, material.x);
 
-    var w_i: vec3<f32> = light.position - position;
-    const w_o = normalize(camera.position - position);
-    const r2 = dot(w_i, w_i);
-    w_i = normalize(w_i);
+      const brdf = diffuse * (1.0 / PI) + vec3<f32>(spec, spec, spec);
 
-    const spec = material.y * isotropicMicrofacet(w_i, w_o, normal, material.z, material.x);
+      const k_light = light.power * max(dot(normal, w_i), 0.0) * (1.0 / (4.0 * PI * r2));
 
-    const brdf = diffuse * (1.0 / PI) + vec3<f32>(spec, spec, spec);
-
-    const k_light = light.power * max(dot(normal, w_i), 0.0) * (1.0 / (4.0 * PI * r2));
-
-    return vec4<f32>(k_light * brdf, 1.0);
+      result = vec4<f32>(brdf  * k_light, 1.0);
+    }
+    return result;
 }
 

@@ -4,8 +4,6 @@ use serde::{Serialize, Deserialize};
 use glam::{Vec3, Vec2, Mat4};
 use std::path::Path;
 use anyhow::Result;
-use crevice::std140::{AsStd140, Std140};
-use mint::Vector3;
 
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(tag = "type")]
@@ -69,28 +67,35 @@ impl LightJSON {
     }
 }
 
-#[derive(AsStd140)]
 pub struct Light {
-    power: Vector3<f32>,
-    position: Vector3<f32>,
+    pub bind_group: BindGroup,
 }
 
 impl Light {
-    pub fn new(position: Vec3, power: Vec3) -> Self {
-        Self {
-            position: position.into(),
-            power: power.into(),
-        }
-    }
+    pub fn new(position: Vec3, power: Vec3, device: &Device, layout: &BindGroupLayout) -> Self {
+        let view_mat = Mat4::look_at_rh(position, Vec3::new(0.0, 0.0, 0.0), Vec3::new(0.0, 1.0, 0.0));
+        let proj_mat = Mat4::perspective_rh(1.0, 1.0, 1.0, 20.0);
 
-    pub fn to_bind_group(self, device: &Device, layout: &BindGroupLayout) -> BindGroup {
+        let slice = [
+            proj_mat.col(0),
+            proj_mat.col(1),
+            proj_mat.col(2),
+            proj_mat.col(3),
+            view_mat.col(0),
+            view_mat.col(1),
+            view_mat.col(2),
+            view_mat.col(3),
+            power.extend(1.0),
+            position.extend(1.0),
+        ];
+
         let buffer = device.create_buffer_init(&util::BufferInitDescriptor {
             label: None,
-            contents: self.as_std140().as_bytes(),
+            contents: bytemuck::cast_slice(&slice),
             usage: BufferUsage::UNIFORM,
         });
 
-        device.create_bind_group(&BindGroupDescriptor {
+        let bind_group = device.create_bind_group(&BindGroupDescriptor {
             layout: layout,
             entries: &[
                 BindGroupEntry {
@@ -99,6 +104,10 @@ impl Light {
                 }
             ],
             label: None,
-        })
+        });
+
+        Self {
+            bind_group,
+        }
     }
 }
