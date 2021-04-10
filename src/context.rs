@@ -17,7 +17,6 @@ pub struct Context {
     diffuse_texture: Texture,
     normal_texture: Texture,
     screen_texture: Texture,
-    light_depth_textures: Vec<Texture>,
     pub scene: Scene,
     pub queue: Queue,
 }
@@ -186,7 +185,7 @@ impl Context {
         };
 
         // load mesh
-        let scene = Scene::from_gltf(&device, &object_layout, &light_layout)?;
+        let scene = Scene::from_gltf(&device, &object_layout, &light_layout, &depth_layout_comparison)?;
 
         // set up geometry pipeline
         let geometry_pipeline = {
@@ -412,10 +411,6 @@ impl Context {
         let screen_texture = Texture::create_window_texture(&device, &texture_layout, width, height);
         let depth_texture = Texture::create_depth_texture(&device, &depth_layout, width, height, None);
 
-        let light_depth_textures = (0..scene.lights.len()).map(|_| {
-            Texture::create_depth_texture(&device, &depth_layout_comparison, width, height, Some(CompareFunction::LessEqual))
-        }).collect();
-
         Ok(Self {
             device,
             queue,
@@ -428,7 +423,6 @@ impl Context {
             diffuse_texture,
             normal_texture,
             screen_texture,
-            light_depth_textures,
             scene,
             depth_texture,
         })
@@ -490,11 +484,11 @@ impl Context {
         }
 
         // shadow passes
-        for (texture, light) in self.light_depth_textures.iter().zip(&self.scene.lights) {
+        for light in &self.scene.lights {
             let mut render_pass = encoder.begin_render_pass(&RenderPassDescriptor {
                 label: None,
                 depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
-                    view: &texture.view,
+                    view: &light.texture.view,
                     depth_ops: Some(Operations {
                         load: LoadOp::Clear(1.0),
                         store: true,
@@ -537,8 +531,8 @@ impl Context {
             render_pass.set_bind_group(3, &self.normal_texture.bind_group, &[]);
             render_pass.set_bind_group(4, &self.material_texture.bind_group, &[]);
             render_pass.set_bind_group(5, &self.depth_texture.bind_group, &[]);
-            for (texture, light) in self.light_depth_textures.iter().zip(&self.scene.lights) {
-                render_pass.set_bind_group(6, &texture.bind_group, &[]);
+            for light in &self.scene.lights {
+                render_pass.set_bind_group(6, &light.texture.bind_group, &[]);
                 render_pass.set_bind_group(1, &light.bind_group, &[]);
                 render_pass.draw(0..3, 0..1);
             }

@@ -14,7 +14,7 @@ pub struct Scene {
 }
 
 impl Scene {
-    pub fn from_gltf(device: &Device, mat_layout: &BindGroupLayout, light_layout: &BindGroupLayout) -> Result<Self> {
+    pub fn from_gltf(device: &Device, mat_layout: &BindGroupLayout, light_layout: &BindGroupLayout, texture_layout: &BindGroupLayout) -> Result<Self> {
         let (doc, buffers, _) = gltf::import("resources/scenes/bunnyscene.glb")?;
         let mut lights_raw = LightJSON::from_file("resources/scenes/bunnyscene.json")?;
 
@@ -41,7 +41,7 @@ impl Scene {
         let lights = lights_raw.into_iter().filter_map(|light| {
             match light {
                 LightJSON::Point { position, power, .. } | LightJSON::Area { position, power, .. } => {
-                    Some(Light::new(position, power, device, light_layout))
+                    Some(Light::new(position, power, device, light_layout, texture_layout))
                 },
                 _ => None,
             }

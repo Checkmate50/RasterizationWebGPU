@@ -2,6 +2,7 @@ use wgpu::*;
 use wgpu::util::DeviceExt;
 use serde::{Serialize, Deserialize};
 use glam::{Vec3, Vec2, Mat4};
+use crate::texture::Texture;
 use std::path::Path;
 use anyhow::Result;
 
@@ -69,10 +70,11 @@ impl LightJSON {
 
 pub struct Light {
     pub bind_group: BindGroup,
+    pub texture: Texture,
 }
 
 impl Light {
-    pub fn new(position: Vec3, power: Vec3, device: &Device, layout: &BindGroupLayout) -> Self {
+    pub fn new(position: Vec3, power: Vec3, device: &Device, layout: &BindGroupLayout, texture_layout: &BindGroupLayout) -> Self {
         let view_mat = Mat4::look_at_rh(position, Vec3::new(0.0, 0.0, 0.0), Vec3::new(0.0, 1.0, 0.0));
         let proj_mat = Mat4::perspective_rh(1.0, 1.0, 1.0, 20.0);
 
@@ -106,8 +108,11 @@ impl Light {
             label: None,
         });
 
+        let texture = Texture::create_depth_texture(&device, &texture_layout, 1024, 1024, Some(CompareFunction::LessEqual));
+
         Self {
             bind_group,
+            texture,
         }
     }
 }
