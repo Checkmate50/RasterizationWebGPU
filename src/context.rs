@@ -1,9 +1,10 @@
 use wgpu::*;
-use anyhow::{Result, anyhow, Context as ErrorContext};
+use anyhow::{Result, anyhow};
 use winit::window::Window;
 use crate::scene::Scene;
 use crate::texture::Texture;
 use std::borrow::Cow;
+use include_wgsl::include_wgsl;
 
 pub struct Context {
     device: Device,
@@ -199,7 +200,7 @@ impl Context {
             });
 
             let shader = {
-                let shader_str = std::fs::read_to_string("resources/shaders/wgsl/geometry.wgsl").context("Failed to open geometry shader file")?;
+                let shader_str = include_wgsl!("../resources/shaders/wgsl/geometry.wgsl");
                 device.create_shader_module(&ShaderModuleDescriptor {
                     label: Some("geometry module"),
                     source: ShaderSource::Wgsl(Cow::Borrowed(&shader_str)),
@@ -263,7 +264,7 @@ impl Context {
             });
 
             let shader = {
-                let shader_str = std::fs::read_to_string("resources/shaders/wgsl/geometry.wgsl").context("Failed to open shadow shader file")?;
+                let shader_str = include_wgsl!("../resources/shaders/wgsl/geometry.wgsl");
                 device.create_shader_module(&ShaderModuleDescriptor {
                     label: Some("shadow module"),
                     source: ShaderSource::Wgsl(Cow::Borrowed(&shader_str)),
@@ -317,7 +318,7 @@ impl Context {
             });
 
             let shader = {
-                let shader_str = std::fs::read_to_string("resources/shaders/wgsl/shading.wgsl").context("Failed to open shading shader file")?;
+                let shader_str = include_str!("../resources/shaders/wgsl/shading.wgsl");
                 device.create_shader_module(&ShaderModuleDescriptor {
                     label: Some("shading module"),
                     source: ShaderSource::Wgsl(Cow::Borrowed(&shader_str)),
@@ -370,7 +371,7 @@ impl Context {
             });
 
             let shader = {
-                let shader_str = std::fs::read_to_string("resources/shaders/wgsl/post.wgsl").context("Failed to open post shader file")?;
+                let shader_str = include_wgsl!("../resources/shaders/wgsl/post.wgsl");
                 device.create_shader_module(&ShaderModuleDescriptor {
                     label: Some("post module"),
                     source: ShaderSource::Wgsl(Cow::Borrowed(&shader_str)),

@@ -644,7 +644,7 @@ dependencies = [
  "khronos-egl",
  "libloading 0.7.0",
  "log",
- "naga",
+ "naga 0.3.1 (git+https://github.com/gfx-rs/naga?tag=gfx-20)",
  "parking_lot",
  "raw-window-handle",
  "wasm-bindgen",
@@ -667,7 +667,7 @@ dependencies = [
  "gfx-hal",
  "log",
  "metal",
- "naga",
+ "naga 0.3.1 (git+https://github.com/gfx-rs/naga?tag=gfx-20)",
  "objc",
  "parking_lot",
  "range-alloc",
@@ -688,7 +688,7 @@ dependencies = [
  "gfx-hal",
  "inplace_it",
  "log",
- "naga",
+ "naga 0.3.1 (git+https://github.com/gfx-rs/naga?tag=gfx-20)",
  "objc",
  "parking_lot",
  "raw-window-handle",
@@ -702,7 +702,7 @@ version = "0.7.0"
 source = "git+https://github.com/gfx-rs/gfx?rev=99e75efbe6ca95c2ad3eecf49cfb8474a17050df#99e75efbe6ca95c2ad3eecf49cfb8474a17050df"
 dependencies = [
  "bitflags",
- "naga",
+ "naga 0.3.1 (git+https://github.com/gfx-rs/naga?tag=gfx-20)",
  "raw-window-handle",
  "thiserror",
 ]
@@ -834,6 +834,15 @@ dependencies = [
  "num-rational",
  "num-traits",
  "png",
+]
+
+[[package]]
+name = "include_wgsl"
+version = "0.1.0"
+source = "git+https://github.com/ashpil/include_wgsl.git#f144fc7a32abbe4e1705bef7617d6989ac389e55"
+dependencies = [
+ "naga 0.3.1 (git+https://github.com/gfx-rs/naga?tag=gfx-21)",
+ "syn",
 ]
 
 [[package]]
@@ -1108,6 +1117,20 @@ dependencies = [
  "num-traits",
  "petgraph",
  "spirv_headers",
+ "thiserror",
+]
+
+[[package]]
+name = "naga"
+version = "0.3.1"
+source = "git+https://github.com/gfx-rs/naga?tag=gfx-21#98252cf5d29790f85cc4397e0cf7a5b6cfaac614"
+dependencies = [
+ "bit-set",
+ "bitflags",
+ "codespan-reporting",
+ "fxhash",
+ "log",
+ "num-traits",
  "thiserror",
 ]
 
@@ -1430,6 +1453,7 @@ dependencies = [
  "futures",
  "glam",
  "gltf",
+ "include_wgsl",
  "mint",
  "serde",
  "serde_json",
@@ -1620,9 +1644,9 @@ checksum = "6446ced80d6c486436db5c078dde11a9f73d42b57fb273121e160b84f63d894c"
 
 [[package]]
 name = "syn"
-version = "1.0.68"
+version = "1.0.69"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3ce15dd3ed8aa2f8eeac4716d6ef5ab58b6b9256db41d7e1a0224c2788e8fd87"
+checksum = "48fe99c6bd8b1cc636890bcc071842de909d902c81ac7dab53ba33c421ab8ffb"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1871,7 +1895,7 @@ dependencies = [
  "arrayvec",
  "js-sys",
  "log",
- "naga",
+ "naga 0.3.1 (git+https://github.com/gfx-rs/naga?tag=gfx-20)",
  "parking_lot",
  "profiling",
  "raw-window-handle",
@@ -1903,7 +1927,7 @@ dependencies = [
  "gpu-alloc",
  "gpu-descriptor",
  "log",
- "naga",
+ "naga 0.3.1 (git+https://github.com/gfx-rs/naga?tag=gfx-20)",
  "parking_lot",
  "profiling",
  "raw-window-handle",
