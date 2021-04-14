@@ -264,7 +264,7 @@ impl Context {
             });
 
             let shader = {
-                let shader_str = include_wgsl!("../resources/shaders/wgsl/geometry.wgsl");
+                let shader_str = include_wgsl!("../resources/shaders/wgsl/shadow.wgsl");
                 device.create_shader_module(&ShaderModuleDescriptor {
                     label: Some("shadow module"),
                     source: ShaderSource::Wgsl(Cow::Borrowed(&shader_str)),
