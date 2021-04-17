@@ -1,5 +1,5 @@
 [
-  {
+    {
       "node": "Point",
       "type": "Point",
       "position": [0, 0, 0],
@@ -17,7 +17,8 @@
   {
       "node": "Ambient",
       "type": "Ambient",
-      "radiance": [0.25, 0.4, 0.5]
+      "radiance": [0.12, 0.2, 0.25],
+      "range": 0.2
   }
 ]
 

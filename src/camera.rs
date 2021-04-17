@@ -23,7 +23,7 @@ impl Camera {
             entries: &[
                 BindGroupLayoutEntry {
                     binding: 0,
-                    visibility: ShaderStage::VERTEX,
+                    visibility: ShaderStage::VERTEX | ShaderStage::FRAGMENT,
                     ty: BindingType::Buffer {
                         ty: BufferBindingType::Uniform,
                         has_dynamic_offset: false,

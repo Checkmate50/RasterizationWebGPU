@@ -1,6 +1,5 @@
 struct VertexOutput {
     [[location(0)]] world_normal: vec3<f32>;
-    [[location(1)]] world_position: vec3<f32>;
     [[builtin(position)]] position: vec4<f32>;
 };
 
@@ -28,10 +27,8 @@ fn vs_main(
     [[location(1)]] normal: vec3<f32>,
 ) -> VertexOutput {
     var out: VertexOutput;
-    const world_position = model_mats.model * vec4<f32>(position, 1.0);
     out.world_normal = normalize((model_mats.normal * vec4<f32>(normal, 0.0)).xyz);
-    out.world_position = world_position.xyz;
-    out.position = cam_mats.proj * cam_mats.view * world_position;
+    out.position = cam_mats.proj * cam_mats.view * model_mats.model * vec4<f32>(position, 1.0);
     return out;
 }
 

@@ -24,16 +24,6 @@ fn vs_main([[builtin(vertex_index)]] vertex_index: u32) -> VertexOutput {
 const PI: f32 = 3.14159265358979323846264;
 
 [[block]]
-struct Camera_Pos {
-    inv_proj: mat4x4<f32>;
-    inv_view: mat4x4<f32>;
-    position: vec3<f32>;
-};
-
-[[group(0), binding(1)]]
-var camera: Camera_Pos;
-
-[[block]]
 struct Light {
     proj: mat4x4<f32>;
     view: mat4x4<f32>;
@@ -41,8 +31,18 @@ struct Light {
     position: vec3<f32>;
 };
 
-[[group(1), binding(0)]]
+[[group(0), binding(0)]]
 var light: Light;
+
+[[block]]
+struct Camera_Pos {
+    inv_proj: mat4x4<f32>;
+    inv_view: mat4x4<f32>;
+    position: vec3<f32>;
+};
+
+[[group(1), binding(1)]]
+var camera: Camera_Pos;
 
 [[group(2), binding(0)]]
 var diffuse_texture: texture_2d<f32>;
@@ -55,14 +55,14 @@ var normal_texture: texture_2d<f32>;
 var normal_sampler: sampler;
 
 [[group(4), binding(0)]]
-var material_texture: texture_2d<f32>;
+var depth_texture: texture_depth_2d;
 [[group(4), binding(1)]]
-var material_sampler: sampler;
+var depth_sampler: sampler;
 
 [[group(5), binding(0)]]
-var depth_texture: texture_depth_2d;
+var material_texture: texture_2d<f32>;
 [[group(5), binding(1)]]
-var depth_sampler: sampler;
+var material_sampler: sampler;
 
 [[group(6), binding(0)]]
 var light_depth_texture: texture_depth_2d;
@@ -153,7 +153,7 @@ fn get_world_position(tex_coords: vec2<f32>) -> vec3<f32> {
     return (camera.inv_view * vec4<f32>(view_position, 1.0)).xyz;
 }
 
-fn get_shadow(position: vec3<f32>) -> f32 {
+fn not_occluded(position: vec3<f32>) -> f32 {
     // compute position in light space
     const light_pos = light.proj * light.view * vec4<f32>(position, 1.0);
 
@@ -171,7 +171,7 @@ fn fs_main(in: VertexOutput) -> [[location(0)]] vec4<f32> {
     const normal = textureSample(normal_texture, normal_sampler, in.tex_coords).xyz;
     const material = textureSample(material_texture, material_sampler, in.tex_coords).xyz;
     const position = get_world_position(in.tex_coords);
-    const shadow = get_shadow(position);
+    const shadow = not_occluded(position);
     var result: vec4<f32> = vec4<f32>(0.0, 0.0, 0.0, 1.0);
     if (shadow == 1.0) {
       var w_i: vec3<f32> = light.position - position;

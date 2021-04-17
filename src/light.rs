@@ -68,13 +68,13 @@ impl LightJSON {
     }
 }
 
-pub struct Light {
-    pub bind_group: BindGroup,
-    pub texture: Texture,
+pub enum Light {
+    Point { bind_group: BindGroup, texture: Texture },
+    Ambient { bind_group: BindGroup },
 }
 
 impl Light {
-    pub fn new(position: Vec3, power: Vec3, device: &Device, layout: &BindGroupLayout, texture_layout: &BindGroupLayout) -> Self {
+    pub fn new_point(position: Vec3, power: Vec3, device: &Device, layout: &BindGroupLayout, texture_layout: &BindGroupLayout) -> Self {
         let view_mat = Mat4::look_at_rh(position, Vec3::new(0.0, 0.0, 0.0), Vec3::new(0.0, 1.0, 0.0));
         let proj_mat = Mat4::perspective_rh(1.0, 1.0, 1.0, 20.0);
 
@@ -110,9 +110,40 @@ impl Light {
 
         let texture = Texture::create_depth_texture(&device, &texture_layout, 1024, 1024, Some(CompareFunction::LessEqual));
 
-        Self {
+        Self::Point {
             bind_group,
             texture,
+        }
+    }
+
+    pub fn new_ambient(radiance: Vec3, range: Option<f32>, device: &Device, layout: &BindGroupLayout) -> Self {
+
+        let slice = [
+            radiance.x,
+            radiance.y,
+            radiance.z,
+            range.unwrap_or(0.0),
+        ];
+
+        let buffer = device.create_buffer_init(&util::BufferInitDescriptor {
+            label: None,
+            contents: bytemuck::cast_slice(&slice),
+            usage: BufferUsage::UNIFORM,
+        });
+
+        let bind_group = device.create_bind_group(&BindGroupDescriptor {
+            layout: layout,
+            entries: &[
+                BindGroupEntry {
+                    binding: 0,
+                    resource: buffer.as_entire_binding(),
+                }
+            ],
+            label: None,
+        });
+
+        Self::Ambient {
+            bind_group,
         }
     }
 }

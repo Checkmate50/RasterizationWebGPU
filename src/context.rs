@@ -2,6 +2,7 @@ use wgpu::*;
 use anyhow::{Result, anyhow};
 use winit::window::Window;
 use crate::scene::Scene;
+use crate::light::Light;
 use crate::texture::Texture;
 use std::borrow::Cow;
 use include_wgsl::include_wgsl;
@@ -13,6 +14,7 @@ pub struct Context {
     shading_pipeline: RenderPipeline,
     post_pipeline: RenderPipeline,
     shadow_pipeline: RenderPipeline,
+    ambient_pipeline: RenderPipeline,
     depth_texture: Texture,
     material_texture: Texture,
     diffuse_texture: Texture,
@@ -188,6 +190,12 @@ impl Context {
         // load mesh
         let scene = Scene::from_gltf(&device, &object_layout, &light_layout, &depth_layout_comparison)?;
 
+        let blend_component = BlendComponent {
+            operation: BlendOperation::Add,
+            src_factor: BlendFactor::One,
+            dst_factor: BlendFactor::One,
+        };
+
         // set up geometry pipeline
         let geometry_pipeline = {
             let layout = device.create_pipeline_layout(&PipelineLayoutDescriptor {
@@ -300,17 +308,67 @@ impl Context {
             })
         };
 
+        // set up ambient pipeline
+        let ambient_pipeline = {
+            let layout = device.create_pipeline_layout(&PipelineLayoutDescriptor {
+                bind_group_layouts: &[
+                    &light_layout,
+                    &scene.camera.layout,
+                    &texture_layout,
+                    &texture_layout,
+                    &depth_layout,
+                ],
+                push_constant_ranges: &[],
+                label: None,
+            });
+
+            let shader = {
+                let shader_str = include_wgsl!("../resources/shaders/wgsl/ambient.wgsl");
+                device.create_shader_module(&ShaderModuleDescriptor {
+                    label: Some("ambient module"),
+                    source: ShaderSource::Wgsl(Cow::Borrowed(&shader_str)),
+                    flags: ShaderFlags::default(),
+                })
+            };
+
+            device.create_render_pipeline(&RenderPipelineDescriptor {
+                vertex: VertexState {
+                    module: &shader,
+                    entry_point: "vs_main",
+                    buffers: &[],
+                },
+                fragment: Some(FragmentState {
+                    module: &shader,
+                    entry_point: "fs_main",
+                    targets: &[
+                        ColorTargetState {
+                            format: TextureFormat::Rgba32Float,
+                            blend: Some(BlendState {
+                                color: blend_component.clone(),
+                                alpha: blend_component.clone(),
+                            }),
+                            write_mask: ColorWrite::default(),
+                        },
+                    ],
+                }),
+                layout: Some(&layout),
+                primitive: PrimitiveState::default(),
+                multisample: MultisampleState::default(),
+                depth_stencil: None,
+                label: Some("ambient pipeline"),
+            })
+        };
 
         // set up light pipeline
         let shading_pipeline = {
             let layout = device.create_pipeline_layout(&PipelineLayoutDescriptor {
                 bind_group_layouts: &[
-                    &scene.camera.layout,
                     &light_layout,
-                    &texture_layout,
+                    &scene.camera.layout,
                     &texture_layout,
                     &texture_layout,
                     &depth_layout,
+                    &texture_layout,
                     &depth_layout_comparison,
                 ],
                 push_constant_ranges: &[],
@@ -324,12 +382,6 @@ impl Context {
                     source: ShaderSource::Wgsl(Cow::Borrowed(&shader_str)),
                     flags: ShaderFlags::VALIDATION,
                 })
-            };
-
-            let blend_component = BlendComponent {
-                operation: BlendOperation::Add,
-                src_factor: BlendFactor::One,
-                dst_factor: BlendFactor::One,
             };
 
             device.create_render_pipeline(&RenderPipelineDescriptor {
@@ -420,6 +472,7 @@ impl Context {
             shading_pipeline,
             shadow_pipeline,
             post_pipeline,
+            ambient_pipeline,
             material_texture,
             diffuse_texture,
             normal_texture,
@@ -486,26 +539,31 @@ impl Context {
 
         // shadow passes
         for light in &self.scene.lights {
-            let mut render_pass = encoder.begin_render_pass(&RenderPassDescriptor {
-                label: None,
-                depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
-                    view: &light.texture.view,
-                    depth_ops: Some(Operations {
-                        load: LoadOp::Clear(1.0),
-                        store: true,
-                    }),
-                    stencil_ops: None,
-                }),
-                color_attachments: &[],
-            });
+            match light {
+                Light::Point { texture, bind_group } => {
+                    let mut render_pass = encoder.begin_render_pass(&RenderPassDescriptor {
+                        label: None,
+                        depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
+                            view: &texture.view,
+                            depth_ops: Some(Operations {
+                                load: LoadOp::Clear(1.0),
+                                store: true,
+                            }),
+                            stencil_ops: None,
+                        }),
+                        color_attachments: &[],
+                    });
 
-            render_pass.set_pipeline(&self.shadow_pipeline);
-            render_pass.set_bind_group(0, &light.bind_group, &[]);
-            for mesh in &self.scene.meshes {
-                render_pass.set_bind_group(1, &mesh.bind_group, &[]);
-                render_pass.set_vertex_buffer(0, mesh.vertices.slice(..));
-                render_pass.set_index_buffer(mesh.indices.slice(..), IndexFormat::Uint32);
-                render_pass.draw_indexed(0..mesh.length, 0, 0..1);
+                    render_pass.set_pipeline(&self.shadow_pipeline);
+                    render_pass.set_bind_group(0, &bind_group, &[]);
+                    for mesh in &self.scene.meshes {
+                        render_pass.set_bind_group(1, &mesh.bind_group, &[]);
+                        render_pass.set_vertex_buffer(0, mesh.vertices.slice(..));
+                        render_pass.set_index_buffer(mesh.indices.slice(..), IndexFormat::Uint32);
+                        render_pass.draw_indexed(0..mesh.length, 0, 0..1);
+                    }
+                },
+                Light::Ambient { .. } => {},
             }
         }
 
@@ -527,15 +585,30 @@ impl Context {
             });
 
             render_pass.set_pipeline(&self.shading_pipeline);
-            render_pass.set_bind_group(0, &self.scene.camera.bind_group, &[]);
+            render_pass.set_bind_group(1, &self.scene.camera.bind_group, &[]);
             render_pass.set_bind_group(2, &self.diffuse_texture.bind_group, &[]);
             render_pass.set_bind_group(3, &self.normal_texture.bind_group, &[]);
-            render_pass.set_bind_group(4, &self.material_texture.bind_group, &[]);
-            render_pass.set_bind_group(5, &self.depth_texture.bind_group, &[]);
+            render_pass.set_bind_group(4, &self.depth_texture.bind_group, &[]);
+            render_pass.set_bind_group(5, &self.material_texture.bind_group, &[]);
             for light in &self.scene.lights {
-                render_pass.set_bind_group(6, &light.texture.bind_group, &[]);
-                render_pass.set_bind_group(1, &light.bind_group, &[]);
-                render_pass.draw(0..3, 0..1);
+                match light {
+                    Light::Point { texture, bind_group } => {
+                        render_pass.set_bind_group(6, &texture.bind_group, &[]);
+                        render_pass.set_bind_group(0, &bind_group, &[]);
+                        render_pass.draw(0..3, 0..1);
+                    },
+                    Light::Ambient { .. } => {},
+                }
+            }
+            render_pass.set_pipeline(&self.ambient_pipeline);
+            for light in &self.scene.lights {
+                match light {
+                    Light::Ambient { bind_group } => {
+                        render_pass.set_bind_group(0, &bind_group, &[]);
+                        render_pass.draw(0..3, 0..1);
+                    },
+                    Light::Point { .. } => {},
+                }
             }
         }
 

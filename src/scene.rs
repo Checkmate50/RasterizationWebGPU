@@ -4,7 +4,7 @@ use crate::camera::Camera;
 use crate::material::Material;
 use crate::light::{LightJSON, Light};
 use anyhow::{Result, anyhow};
-use glam::{Mat4, Vec3, Vec4};
+use glam::{Mat4, Vec3};//, Vec4};
 use gltf::{Node, buffer::Data};
 
 pub struct Scene {
@@ -18,16 +18,16 @@ impl Scene {
         let (doc, buffers, _) = gltf::import("resources/scenes/bunnyscene.glb")?;
         let mut lights_raw = LightJSON::from_file("resources/scenes/bunnyscene.json")?;
 
-        let materials = doc.materials().map(|m| {
-            let a = m.pbr_metallic_roughness();
-            Material::new(a.roughness_factor(), 1.0, 1.5, Vec4::from(a.base_color_factor()).into()).to_buffer(device)
-        }).collect();
+        //let materials = doc.materials().map(|m| {
+        //    let a = m.pbr_metallic_roughness();
+        //    Material::new(a.roughness_factor(), 1.0, 1.5, Vec4::from(a.base_color_factor()).into()).to_buffer(device)
+        //}).collect();
 
         // materials used in bunnyscene reference aren't actually ones in the gltf file, these are those
-        //  let mats = vec![
-        //      Material::new(0.1, 1.0, 1.5, Vec3::new(0.2, 0.3, 0.8)).to_buffer(device),
-        //      Material::new(0.2, 1.0, 1.5, Vec3::new(0.2, 0.2, 0.2)).to_buffer(device),
-        //  ];
+        let materials = vec![
+            Material::new(0.1, 1.0, 1.5, Vec3::new(0.2, 0.3, 0.8)).to_buffer(device),
+            Material::new(0.2, 1.0, 1.5, Vec3::new(0.2, 0.2, 0.2)).to_buffer(device),
+        ];
 
         let mut meshes = Vec::new();
         let mut maybe_camera = None;
@@ -41,9 +41,11 @@ impl Scene {
         let lights = lights_raw.into_iter().filter_map(|light| {
             match light {
                 LightJSON::Point { position, power, .. } | LightJSON::Area { position, power, .. } => {
-                    Some(Light::new(position, power, device, light_layout, texture_layout))
+                    Some(Light::new_point(position, power, device, light_layout, texture_layout))
                 },
-                _ => None,
+                LightJSON::Ambient { radiance, range, .. } => {
+                    Some(Light::new_ambient(radiance, range, device, light_layout))
+                },
             }
         }).collect();
 
