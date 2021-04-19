@@ -7,3 +7,4 @@ pub mod texture;
 pub mod scene;
 pub mod light;
 pub mod material;
+pub mod sky;

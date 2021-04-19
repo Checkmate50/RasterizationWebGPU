@@ -2,15 +2,18 @@ use wgpu::*;
 use crate::mesh::Mesh;
 use crate::camera::Camera;
 use crate::material::Material;
+use crate::sky::Sky;
 use crate::light::{LightJSON, Light};
 use anyhow::{Result, anyhow};
 use glam::{Mat4, Vec3};//, Vec4};
 use gltf::{Node, buffer::Data};
+use std::f32::consts::PI;
 
 pub struct Scene {
     pub meshes: Vec<Mesh>,
     pub camera: Camera,
     pub lights: Vec<Light>,
+    pub sky: Sky,
 }
 
 impl Scene {
@@ -49,10 +52,13 @@ impl Scene {
             }
         }).collect();
 
+        let sky = Sky::new(30.0 * PI / 180.0, 4.0, device);
+
         Ok(Self {
             meshes,
             camera,
             lights,
+            sky,
         })
     }
 

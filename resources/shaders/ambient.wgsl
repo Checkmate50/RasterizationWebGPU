@@ -42,6 +42,7 @@ struct Camera {
 struct InvCamera {
     inv_proj: mat4x4<f32>;
     inv_view: mat4x4<f32>;
+    position: vec3<f32>;
 };
 
 [[group(1), binding(0)]]
@@ -64,6 +65,26 @@ var normal_sampler: sampler;
 var depth_texture: texture_depth_2d;
 [[group(4), binding(1)]]
 var depth_sampler: sampler;
+
+[[block]]
+struct Sky {
+    A: vec3<f32>;
+    B: vec3<f32>;
+    C: vec3<f32>;
+    D: vec3<f32>;
+    E: vec3<f32>;
+    zenith: vec3<f32>;
+    theta_sun: f32;
+};
+
+const sky_scale: f32 = 0.06;
+const ground_radiance: vec3<f32> = vec3<f32>(0.5, 0.5, 0.5);
+const solar_disc_radiance: vec3<f32> = vec3<f32>(10000.0, 10000.0, 10000.0);
+const sun_angular_radius: f32 = 0.00872664625;
+const phi_sun: f32 = PI;
+
+[[group(5), binding(0)]]
+var sky: Sky;
 
 fn random(co: vec2<f32>) -> f32 {
     return fract(sin(dot(co.xy,vec2<f32>(12.9898,78.233))) * 43758.5453);
@@ -159,11 +180,47 @@ fn is_occluded(world_position: vec3<f32>, direction: vec3<f32>, range: f32) -> f
     return result * range_check;
 }
 
+fn perez(theta: f32, gamma: f32) -> vec3<f32> {
+    return (vec3<f32>(1.0, 1.0, 1.0) + sky.A * exp(sky.B * (1.0 / cos(theta)))) * (vec3<f32>(1.0, 1.0, 1.0) + sky.C * exp(sky.D * gamma) + sky.E * pow(cos(gamma), 2.0));
+}
+
+fn sun_radiance(dir: vec3<f32>) -> vec3<f32> {
+    const sun_dir = vec3<f32>(sin(sky.theta_sun) * cos(phi_sun), cos(sky.theta_sun), sin(sky.theta_sun) * sin(phi_sun));
+    if (dot(dir, sun_dir) > cos(sun_angular_radius)) {
+        return solar_disc_radiance;
+    }
+    return vec3<f32>(0.0, 0.0, 0.0);
+}
+
+const XYZ2RGB: mat3x3<f32> = mat3x3<f32>(
+   vec3<f32>(3.2404542, -0.969266, 0.0556434),
+   vec3<f32>(-1.5371385, 1.8760108, -0.2040259),
+   vec3<f32>(-0.4985314, 0.041556, 1.0572252)
+);
+
+fn sky_radiance(dir: vec3<f32>) -> vec3<f32> {
+    const sun_dir = vec3<f32>(sin(sky.theta_sun) * cos(phi_sun), cos(sky.theta_sun), sin(sky.theta_sun) * sin(phi_sun));
+    const gamma = acos(min(1.0, dot(dir, sun_dir)));
+    if (dir.y > 0.0) {
+      const theta = acos(dir.y);
+      const Yxy = sky.zenith * perez(theta, gamma) / perez(0.0, sky.theta_sun);
+      return XYZ2RGB * vec3<f32>(Yxy[1] * (Yxy[0]/Yxy[2]), Yxy[0], (1.0 - Yxy[1] - Yxy[2])*(Yxy[0]/Yxy[2])) * sky_scale;
+    }
+    return ground_radiance;
+}
+
+fn sunsky_radiance(dir: vec3<f32>) -> vec3<f32> {
+    return sun_radiance(dir) + sky_radiance(dir);
+}
+
 [[stage(fragment)]]
 fn fs_main(in: VertexOutput) -> [[location(0)]] vec4<f32> {
     const diffuse = textureSample(diffuse_texture, diffuse_sampler, in.tex_coords).xyz;
     const normal = textureSample(normal_texture, normal_sampler, in.tex_coords).xyz;
     const position = get_world_position(in.tex_coords);
+    if (normal.x == 0.0 && normal.y == 0.0 && normal.z == 0.0) {
+        return vec4<f32>(sunsky_radiance(normalize(position - inv_camera.position)), 1.0);
+    }
     const TBN = make_tbn(normal);
     var i: f32 = 0.0;
     const max_iter = 32.0;

@@ -208,11 +208,11 @@ impl Context {
             });
 
             let shader = {
-                let shader_str = include_wgsl!("../resources/shaders/wgsl/geometry.wgsl");
+                let shader_str = include_wgsl!("../resources/shaders/geometry.wgsl");
                 device.create_shader_module(&ShaderModuleDescriptor {
                     label: Some("geometry module"),
                     source: ShaderSource::Wgsl(Cow::Borrowed(&shader_str)),
-                    flags: ShaderFlags::default(),
+                    flags: ShaderFlags::VALIDATION,
                 })
             };
 
@@ -254,7 +254,6 @@ impl Context {
                     depth_compare: CompareFunction::Less,
                     stencil: StencilState::default(),
                     bias: DepthBiasState::default(),
-                    clamp_depth: false,
                 }),
                 label: Some("geometry pipeline"),
             })
@@ -272,11 +271,11 @@ impl Context {
             });
 
             let shader = {
-                let shader_str = include_wgsl!("../resources/shaders/wgsl/shadow.wgsl");
+                let shader_str = include_wgsl!("../resources/shaders/shadow.wgsl");
                 device.create_shader_module(&ShaderModuleDescriptor {
                     label: Some("shadow module"),
                     source: ShaderSource::Wgsl(Cow::Borrowed(&shader_str)),
-                    flags: ShaderFlags::default(),
+                    flags: ShaderFlags::VALIDATION,
                 })
             };
 
@@ -302,7 +301,6 @@ impl Context {
                         slope_scale: 4.0,
                         clamp: 0.0,
                     },
-                    clamp_depth: false,
                 }),
                 label: Some("shadow pipeline"),
             })
@@ -317,17 +315,18 @@ impl Context {
                     &texture_layout,
                     &texture_layout,
                     &depth_layout,
+                    &scene.sky.layout,
                 ],
                 push_constant_ranges: &[],
                 label: None,
             });
 
             let shader = {
-                let shader_str = include_wgsl!("../resources/shaders/wgsl/ambient.wgsl");
+                let shader_str = include_wgsl!("../resources/shaders/ambient.wgsl");
                 device.create_shader_module(&ShaderModuleDescriptor {
                     label: Some("ambient module"),
                     source: ShaderSource::Wgsl(Cow::Borrowed(&shader_str)),
-                    flags: ShaderFlags::default(),
+                    flags: ShaderFlags::VALIDATION,
                 })
             };
 
@@ -376,7 +375,7 @@ impl Context {
             });
 
             let shader = {
-                let shader_str = include_str!("../resources/shaders/wgsl/shading.wgsl");
+                let shader_str = include_str!("../resources/shaders/shading.wgsl");
                 device.create_shader_module(&ShaderModuleDescriptor {
                     label: Some("shading module"),
                     source: ShaderSource::Wgsl(Cow::Borrowed(&shader_str)),
@@ -423,7 +422,7 @@ impl Context {
             });
 
             let shader = {
-                let shader_str = include_wgsl!("../resources/shaders/wgsl/post.wgsl");
+                let shader_str = include_wgsl!("../resources/shaders/post.wgsl");
                 device.create_shader_module(&ShaderModuleDescriptor {
                     label: Some("post module"),
                     source: ShaderSource::Wgsl(Cow::Borrowed(&shader_str)),
@@ -601,6 +600,7 @@ impl Context {
                 }
             }
             render_pass.set_pipeline(&self.ambient_pipeline);
+            render_pass.set_bind_group(5, &self.scene.sky.bind_group, &[]);
             for light in &self.scene.lights {
                 match light {
                     Light::Ambient { bind_group } => {
