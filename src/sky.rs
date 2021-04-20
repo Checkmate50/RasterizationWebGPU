@@ -1,8 +1,10 @@
 use wgpu::*;
 use wgpu::util::DeviceExt;
+use mint::Vector3;
 use glam::{Vec2, Vec3, Vec4};
 use core::ops::{Mul, Add};
 use std::f32::consts::PI;
+use crevice::std140::{AsStd140, Std140};
 
 pub struct Sky {
     pub bind_group: BindGroup,
@@ -118,12 +120,21 @@ impl Sky {
         let xz = __z(theta_sun, turbidity, mx);
         let yz = __z(theta_sun, turbidity, my);
 
-        let a = Vec3::new(p_y.x, px.x, py.x).extend(0.0);
-        let b = Vec3::new(p_y.y, px.y, py.y).extend(0.0);
-        let c = Vec3::new(p_y.z, px.z, py.z).extend(0.0);
-        let d = Vec3::new(p_y.w, px.w, py.w).extend(0.0);
-        let e = Vec3::new(p_y.v, px.v, py.v).extend(0.0);
-        let zenith = Vec3::new(y_z, xz, yz).extend(0.0);
+        let a = Vec3::new(p_y.x, px.x, py.x);
+        let b = Vec3::new(p_y.y, px.y, py.y);
+        let c = Vec3::new(p_y.z, px.z, py.z);
+        let d = Vec3::new(p_y.w, px.w, py.w);
+        let e = Vec3::new(p_y.v, px.v, py.v);
+        let zenith = Vec3::new(y_z, xz, yz);
+        let bytes = SkyBytes {
+            a: a.into(),
+            b: b.into(),
+            c: c.into(),
+            d: d.into(),
+            e: e.into(),
+            zenith: zenith.into(),
+            theta_sun,
+        };
 
         let layout = device.create_bind_group_layout(&BindGroupLayoutDescriptor {
             entries: &[
@@ -143,7 +154,7 @@ impl Sky {
 
         let buffer = device.create_buffer_init(&util::BufferInitDescriptor {
             label: None,
-            contents: bytemuck::cast_slice(&[a, b, c, d, e, zenith, Vec4::new(theta_sun, 0.0, 0.0, 0.0)]),
+            contents: bytes.as_std140().as_bytes(),
             usage: BufferUsage::UNIFORM,
         });
 
@@ -165,3 +176,15 @@ impl Sky {
         }
     }
 }
+
+#[derive(AsStd140)]
+struct SkyBytes {
+    a: Vector3<f32>,
+    b: Vector3<f32>,
+    c: Vector3<f32>,
+    d: Vector3<f32>,
+    e: Vector3<f32>,
+    zenith: Vector3<f32>,
+    theta_sun: f32,
+}
+

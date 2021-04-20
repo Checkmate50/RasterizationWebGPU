@@ -52,7 +52,7 @@ impl Scene {
             }
         }).collect();
 
-        let sky = Sky::new(30.0 * PI / 180.0, 4.0, device);
+        let sky = Sky::new(90.0 * PI / 180.0, 3.0, device);
 
         Ok(Self {
             meshes,
