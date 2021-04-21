@@ -1,3 +1,6 @@
+let PI: f32 = 3.14159265358979323846264;
+let INV_SQRT_TWOPI: f32 = 0.3989422804;
+
 struct VertexOutput {
     [[location(0)]] tex_coords: vec2<f32>;
     [[builtin(position)]] position: vec4<f32>;
@@ -28,6 +31,9 @@ var sampler: sampler;
 
 [[stage(fragment)]]
 fn fs_main(in: VertexOutput) -> [[location(0)]] vec4<f32> {
-    return textureSample(texture, sampler, in.tex_coords);
+    let dims = textureDimensions(texture); // THIS LINE
+    var s: vec3<f32> = vec3<f32>(0.0, 0.0, 0.0);
+    return vec4<f32>(s, 1.0);
 }
+
 

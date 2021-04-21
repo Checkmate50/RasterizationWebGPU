@@ -126,7 +126,7 @@ impl Context {
                         binding: 1,
                         visibility: ShaderStage::FRAGMENT,
                         ty: BindingType::Sampler {
-                            filtering: false,
+                            filtering: true,
                             comparison: false,
                         },
                         count: None,
@@ -151,7 +151,7 @@ impl Context {
                         binding: 1,
                         visibility: ShaderStage::FRAGMENT,
                         ty: BindingType::Sampler {
-                            filtering: false,
+                            filtering: true,
                             comparison: false,
                         },
                         count: None,
@@ -176,7 +176,7 @@ impl Context {
                         binding: 1,
                         visibility: ShaderStage::FRAGMENT,
                         ty: BindingType::Sampler {
-                            filtering: false,
+                            filtering: true,
                             comparison: true,
                         },
                         count: None,
@@ -195,6 +195,12 @@ impl Context {
             src_factor: BlendFactor::One,
             dst_factor: BlendFactor::One,
         };
+
+        // create required textures
+        let diffuse_texture = Texture::create_window_texture(&device, &texture_layout, TextureFormat::Rgb10a2Unorm, None, width, height);
+        let material_texture = Texture::create_window_texture(&device, &texture_layout, TextureFormat::Rgba32Float, None, width, height);
+        let normal_texture = Texture::create_window_texture(&device, &texture_layout, TextureFormat::Rgba32Float, None, width, height);
+        let depth_texture = Texture::create_window_texture(&device, &depth_layout, TextureFormat::Depth32Float, None, width, height);
 
         // set up geometry pipeline
         let geometry_pipeline = {
@@ -229,17 +235,17 @@ impl Context {
                     entry_point: "fs_main",
                     targets: &[
                         ColorTargetState {
-                            format: TextureFormat::Rgba32Float,
+                            format: diffuse_texture.format,
                             blend: None,
                             write_mask: ColorWrite::default(),
                         },
                         ColorTargetState {
-                            format: TextureFormat::Rgba32Float,
+                            format: material_texture.format,
                             blend: None,
                             write_mask: ColorWrite::default(),
                         },
                         ColorTargetState {
-                            format: TextureFormat::Rgba32Float,
+                            format: normal_texture.format,
                             blend: None,
                             write_mask: ColorWrite::default(),
                         },
@@ -249,7 +255,7 @@ impl Context {
                 primitive: PrimitiveState::default(),
                 multisample: MultisampleState::default(),
                 depth_stencil: Some(DepthStencilState {
-                    format: TextureFormat::Depth32Float,
+                    format: depth_texture.format,
                     depth_write_enabled: true,
                     depth_compare: CompareFunction::Less,
                     stencil: StencilState::default(),
@@ -306,6 +312,9 @@ impl Context {
             })
         };
 
+        // pre-post screen texture
+        let screen_texture = Texture::create_window_texture(&device, &texture_layout, TextureFormat::Rgb10a2Unorm, None, width, height);
+
         // set up ambient pipeline
         let ambient_pipeline = {
             let layout = device.create_pipeline_layout(&PipelineLayoutDescriptor {
@@ -341,7 +350,7 @@ impl Context {
                     entry_point: "fs_main",
                     targets: &[
                         ColorTargetState {
-                            format: TextureFormat::Rgba32Float,
+                            format: screen_texture.format,
                             blend: Some(BlendState {
                                 color: blend_component.clone(),
                                 alpha: blend_component.clone(),
@@ -375,7 +384,7 @@ impl Context {
             });
 
             let shader = {
-                let shader_str = include_str!("./shaders/shading.wgsl");
+                let shader_str = include_wgsl!("./shaders/shading.wgsl");
                 device.create_shader_module(&ShaderModuleDescriptor {
                     label: Some("shading module"),
                     source: ShaderSource::Wgsl(Cow::Borrowed(&shader_str)),
@@ -394,7 +403,7 @@ impl Context {
                     entry_point: "fs_main",
                     targets: &[
                         ColorTargetState {
-                            format: TextureFormat::Rgba32Float,
+                            format: screen_texture.format,
                             blend: Some(BlendState {
                                 color: blend_component.clone(),
                                 alpha: blend_component,
@@ -408,6 +417,53 @@ impl Context {
                 multisample: MultisampleState::default(),
                 depth_stencil: None,
                 label: Some("shading pipeline"),
+            })
+        };
+
+        // pre-post blurred screen texture
+        let blur_texture = Texture::create_window_texture(&device, &texture_layout, TextureFormat::Rgb10a2Unorm, None, width, height);
+
+        // set up blur pipeline
+        let blur_pipeline = {
+            let layout = device.create_pipeline_layout(&PipelineLayoutDescriptor {
+                bind_group_layouts: &[
+                    &texture_layout,
+                ],
+                push_constant_ranges: &[],
+                label: None,
+            });
+
+            let shader = {
+                let shader_str = include_wgsl!("./shaders/blur.wgsl");
+                device.create_shader_module(&ShaderModuleDescriptor {
+                    label: Some("blur module"),
+                    source: ShaderSource::Wgsl(Cow::Borrowed(&shader_str)),
+                    flags: ShaderFlags::VALIDATION,
+                })
+            };
+
+            device.create_render_pipeline(&RenderPipelineDescriptor {
+                vertex: VertexState {
+                    module: &shader,
+                    entry_point: "vs_main",
+                    buffers: &[],
+                },
+                fragment: Some(FragmentState {
+                    module: &shader,
+                    entry_point: "fs_main",
+                    targets: &[
+                        ColorTargetState {
+                            format: blur_texture.format,
+                            blend: None,
+                            write_mask: ColorWrite::default(),
+                        },
+                    ],
+                }),
+                layout: Some(&layout),
+                primitive: PrimitiveState::default(),
+                multisample: MultisampleState::default(),
+                depth_stencil: None,
+                label: Some("blur pipeline"),
             })
         };
 
@@ -454,14 +510,6 @@ impl Context {
                 label: Some("post pipeline"),
             })
         };
-
-
-        // create required textures
-        let diffuse_texture = Texture::create_window_texture(&device, &texture_layout, width, height);
-        let material_texture = Texture::create_window_texture(&device, &texture_layout, width, height);
-        let normal_texture = Texture::create_window_texture(&device, &texture_layout, width, height);
-        let screen_texture = Texture::create_window_texture(&device, &texture_layout, width, height);
-        let depth_texture = Texture::create_depth_texture(&device, &depth_layout, width, height, None);
 
         Ok(Self {
             device,

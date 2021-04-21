@@ -6,9 +6,9 @@ struct VertexOutput {
 [[stage(vertex)]]
 fn vs_main([[builtin(vertex_index)]] vertex_index: u32) -> VertexOutput {
     var out: VertexOutput;
-    const x = i32(vertex_index) / 2;
-    const y = i32(vertex_index) & 1;
-    const tc = vec2<f32>(
+    let x = i32(vertex_index) / 2;
+    let y = i32(vertex_index) & 1;
+    let tc = vec2<f32>(
         f32(x) * 2.0,
         f32(y) * 2.0
     );
@@ -21,7 +21,7 @@ fn vs_main([[builtin(vertex_index)]] vertex_index: u32) -> VertexOutput {
     return out;
 }
 
-const PI: f32 = 3.14159265358979323846264;
+let PI: f32 = 3.14159265358979323846264;
 
 [[block]]
 struct Light {
@@ -74,13 +74,13 @@ var light_depth_sampler: sampler_comparison;
 //   m -- microsurface normal
 //   eta -- refractive index
 fn fresnel(i: vec3<f32>, m: vec3<f32>, eta: f32) -> f32 {
-    const c = abs(dot(i, m));
-    const g = sqrt(eta * eta - 1.0 + c * c);
+    let c = abs(dot(i, m));
+    let g = sqrt(eta * eta - 1.0 + c * c);
 
-    const gmc = g - c;
-    const gpc = g + c;
-    const nom = c * (g + c) - 1.0;
-    const denom = c * (g - c) + 1.0;
+    let gmc = g - c;
+    let gpc = g + c;
+    let nom = c * (g + c) - 1.0;
+    let denom = c * (g - c) + 1.0;
     return 0.5 * gmc * gmc / gpc / gpc * (1.0 + nom * nom / denom / denom);
 }
 
@@ -90,13 +90,13 @@ fn fresnel(i: vec3<f32>, m: vec3<f32>, eta: f32) -> f32 {
 //   n -- (macro) surface normal
 //   alpha -- surface roughness
 fn G1(v: vec3<f32>, m: vec3<f32>, n: vec3<f32>, alpha: f32) -> f32 {
-    const vm = dot(v, m);
-    const vn = dot(v, n);
+    let vm = dot(v, m);
+    let vn = dot(v, n);
     var result: f32 = 0.0;
     if (vm * vn > 0.0) {
-        const cosThetaV = dot(n, v);
-        const sinThetaV2 = 1.0 - cosThetaV * cosThetaV;
-        const tanThetaV2 = sinThetaV2 / cosThetaV / cosThetaV;
+        let cosThetaV = dot(n, v);
+        let sinThetaV2 = 1.0 - cosThetaV * cosThetaV;
+        let tanThetaV2 = sinThetaV2 / cosThetaV / cosThetaV;
         result = 2.0 / (1.0 + sqrt(1.0 + alpha * alpha * tanThetaV2));
     }
     return result;
@@ -107,14 +107,14 @@ fn G1(v: vec3<f32>, m: vec3<f32>, n: vec3<f32>, alpha: f32) -> f32 {
 //   n -- (macro) surface normal
 //   alpha -- surface roughness
 fn D(m: vec3<f32>, n: vec3<f32>, alpha: f32) -> f32 {
-    const mn = dot(m, n);
+    let mn = dot(m, n);
     var result: f32 = 0.0;
     if (mn > 0.0) {
-        const cosThetaM = mn;
-        const cosThetaM2 = cosThetaM * cosThetaM;
-        const tanThetaM2 = (1.0 - cosThetaM2) / cosThetaM2;
-        const cosThetaM4 =  cosThetaM * cosThetaM * cosThetaM * cosThetaM;
-        const X = (alpha * alpha + tanThetaM2);
+        let cosThetaM = mn;
+        let cosThetaM2 = cosThetaM * cosThetaM;
+        let tanThetaM2 = (1.0 - cosThetaM2) / cosThetaM2;
+        let cosThetaM4 =  cosThetaM * cosThetaM * cosThetaM * cosThetaM;
+        let X = (alpha * alpha + tanThetaM2);
         result = alpha * alpha / (PI * cosThetaM4 * X * X);
     }
     return result;
@@ -128,38 +128,38 @@ fn D(m: vec3<f32>, n: vec3<f32>, alpha: f32) -> f32 {
 //   alpha -- surface roughness
 // return: scalar BRDF value
 fn isotropic_microfacet(i: vec3<f32>, o: vec3<f32>, n: vec3<f32>, eta: f32, alpha: f32) -> f32 {
-    const odotn = dot(o, n);
-    const m = normalize(i + o);
+    let odotn = dot(o, n);
+    let m = normalize(i + o);
 
-    const idotn = dot(i,n);
+    let idotn = dot(i,n);
     if (idotn <= 0.0 || odotn <= 0.0) {
         return 0.0;
     }
 
-    const idotm = dot(i, m);
+    let idotm = dot(i, m);
     var F: f32 = 0.0;
     if (idotm > 0.0) {
         F = fresnel(i,m,eta);
     }
-    const G = G1(i, m, n, alpha) * G1(o, m, n, alpha);
+    let G = G1(i, m, n, alpha) * G1(o, m, n, alpha);
     return F * G * D(m, n, alpha) / (4.0 * idotn * odotn);
 }
 
 fn get_world_position(tex_coords: vec2<f32>) -> vec3<f32> {
-    const depth = textureSample(depth_texture, depth_sampler, tex_coords);
-    const coords_ndc = vec2<f32>(tex_coords.x * 2.0 - 1.0, (1.0 - tex_coords.y) * 2.0 - 1.0);
-    const view_position_tmp = camera.inv_proj * vec4<f32>(coords_ndc, depth, 1.0);
-    const view_position = view_position_tmp.xyz * (1.0 / view_position_tmp.w);
+    let depth = textureSample(depth_texture, depth_sampler, tex_coords);
+    let coords_ndc = vec2<f32>(tex_coords.x * 2.0 - 1.0, (1.0 - tex_coords.y) * 2.0 - 1.0);
+    let view_position_tmp = camera.inv_proj * vec4<f32>(coords_ndc, depth, 1.0);
+    let view_position = view_position_tmp.xyz * (1.0 / view_position_tmp.w);
     return (camera.inv_view * vec4<f32>(view_position, 1.0)).xyz;
 }
 
 fn not_occluded(position: vec3<f32>) -> f32 {
     // compute position in light space
-    const light_pos = light.proj * light.view * vec4<f32>(position, 1.0);
+    let light_pos = light.proj * light.view * vec4<f32>(position, 1.0);
 
     // vulkan's coordinate system is in [1, -1], [-1, 1], [0, 1] so we account for that
-    const flip = vec3<f32>(0.5, -0.5, 1.0);
-    const shadow_coords = light_pos.xyz * flip * (1.0 / light_pos.w) + vec3<f32>(0.5, 0.5, 0.0);
+    let flip = vec3<f32>(0.5, -0.5, 1.0);
+    let shadow_coords = light_pos.xyz * flip * (1.0 / light_pos.w) + vec3<f32>(0.5, 0.5, 0.0);
 
     // get texture with comparison sampler
     return textureSampleCompare(light_depth_texture, light_depth_sampler, shadow_coords.xy, shadow_coords.z);
@@ -167,23 +167,23 @@ fn not_occluded(position: vec3<f32>) -> f32 {
 
 [[stage(fragment)]]
 fn fs_main(in: VertexOutput) -> [[location(0)]] vec4<f32> {
-    const diffuse = textureSample(diffuse_texture, diffuse_sampler, in.tex_coords).xyz;
-    const normal = textureSample(normal_texture, normal_sampler, in.tex_coords).xyz;
-    const material = textureSample(material_texture, material_sampler, in.tex_coords).xyz;
-    const position = get_world_position(in.tex_coords);
-    const shadow = not_occluded(position);
+    let diffuse = textureSample(diffuse_texture, diffuse_sampler, in.tex_coords).xyz;
+    let normal = textureSample(normal_texture, normal_sampler, in.tex_coords).xyz;
+    let material = textureSample(material_texture, material_sampler, in.tex_coords).xyz;
+    let position = get_world_position(in.tex_coords);
+    let shadow = not_occluded(position);
     var result: vec4<f32> = vec4<f32>(0.0, 0.0, 0.0, 1.0);
     if (shadow == 1.0) {
       var w_i: vec3<f32> = light.position - position;
-      const w_o = normalize(camera.position - position);
-      const r2 = dot(w_i, w_i);
+      let w_o = normalize(camera.position - position);
+      let r2 = dot(w_i, w_i);
       w_i = normalize(w_i);
 
-      const spec = material.y * isotropic_microfacet(w_i, w_o, normal, material.z, material.x);
+      let spec = material.y * isotropic_microfacet(w_i, w_o, normal, material.z, material.x);
 
-      const brdf = diffuse * (1.0 / PI) + vec3<f32>(spec, spec, spec);
+      let brdf = diffuse * (1.0 / PI) + vec3<f32>(spec, spec, spec);
 
-      const k_light = light.power * max(dot(normal, w_i), 0.0) * (1.0 / (4.0 * PI * r2));
+      let k_light = light.power * max(dot(normal, w_i), 0.0) * (1.0 / (4.0 * PI * r2));
 
       result = vec4<f32>(brdf  * k_light, 1.0);
     }

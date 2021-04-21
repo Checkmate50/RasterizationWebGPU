@@ -108,7 +108,7 @@ impl Light {
             label: None,
         });
 
-        let texture = Texture::create_depth_texture(&device, &texture_layout, 1024, 1024, Some(CompareFunction::LessEqual));
+        let texture = Texture::create_window_texture(&device, &texture_layout, TextureFormat::Depth32Float, Some(CompareFunction::LessEqual), 1024, 1024);
 
         Self::Point {
             bind_group,
