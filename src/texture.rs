@@ -1,4 +1,5 @@
 use wgpu::*;
+use wgpu::util::DeviceExt;
 
 pub struct Texture {
     pub texture: wgpu::Texture,
@@ -36,16 +37,26 @@ impl Texture {
             ..Default::default()
         });
 
+        let dim_buffer = device.create_buffer_init(&util::BufferInitDescriptor {
+            label: None,
+            contents: bytemuck::cast_slice(&[width as f32, height as f32]),
+            usage: BufferUsage::UNIFORM | BufferUsage::COPY_DST,
+        });
+
         let bind_group = device.create_bind_group(&BindGroupDescriptor {
             layout: layout,
             entries: &[
-                wgpu::BindGroupEntry {
+                BindGroupEntry {
                     binding: 0,
                     resource: BindingResource::TextureView(&view),
                 },
-                wgpu::BindGroupEntry {
+                BindGroupEntry {
                     binding: 1,
                     resource: BindingResource::Sampler(&sampler),
+                },
+                BindGroupEntry {
+                    binding: 2,
+                    resource: dim_buffer.as_entire_binding(),
                 }
             ],
             label: Some(&format!("{:?}", format)),

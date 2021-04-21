@@ -3,6 +3,7 @@ use anyhow::{Result, anyhow};
 use winit::window::Window;
 use crate::scene::Scene;
 use crate::light::Light;
+use crate::blur::Blur;
 use crate::texture::Texture;
 use std::borrow::Cow;
 use include_wgsl::include_wgsl;
@@ -15,11 +16,14 @@ pub struct Context {
     post_pipeline: RenderPipeline,
     shadow_pipeline: RenderPipeline,
     ambient_pipeline: RenderPipeline,
+    blur_pipeline: RenderPipeline,
     depth_texture: Texture,
     material_texture: Texture,
     diffuse_texture: Texture,
     normal_texture: Texture,
     screen_texture: Texture,
+    blurred_texture: Texture,
+    blur: Blur,
     pub scene: Scene,
     pub queue: Queue,
 }
@@ -130,6 +134,16 @@ impl Context {
                             comparison: false,
                         },
                         count: None,
+                    },
+                    BindGroupLayoutEntry {
+                        binding: 2,
+                        visibility: ShaderStage::FRAGMENT,
+                        ty: BindingType::Buffer {
+                            ty: BufferBindingType::Uniform,
+                            has_dynamic_offset: false,
+                            min_binding_size: None,
+                        },
+                        count: None,
                     }
                 ],
                 label: None,
@@ -155,6 +169,16 @@ impl Context {
                             comparison: false,
                         },
                         count: None,
+                    },
+                    BindGroupLayoutEntry {
+                        binding: 2,
+                        visibility: ShaderStage::FRAGMENT,
+                        ty: BindingType::Buffer {
+                            ty: BufferBindingType::Uniform,
+                            has_dynamic_offset: false,
+                            min_binding_size: None,
+                        },
+                        count: None,
                     }
                 ],
                 label: None,
@@ -178,6 +202,16 @@ impl Context {
                         ty: BindingType::Sampler {
                             filtering: true,
                             comparison: true,
+                        },
+                        count: None,
+                    },
+                    BindGroupLayoutEntry {
+                        binding: 2,
+                        visibility: ShaderStage::FRAGMENT,
+                        ty: BindingType::Buffer {
+                            ty: BufferBindingType::Uniform,
+                            has_dynamic_offset: false,
+                            min_binding_size: None,
                         },
                         count: None,
                     }
@@ -421,13 +455,15 @@ impl Context {
         };
 
         // pre-post blurred screen texture
-        let blur_texture = Texture::create_window_texture(&device, &texture_layout, TextureFormat::Rgb10a2Unorm, None, width, height);
+        let blurred_texture = Texture::create_window_texture(&device, &texture_layout, TextureFormat::Rgb10a2Unorm, None, width, height);
 
         // set up blur pipeline
+        let blur = Blur::new(32.0, 128, &device);
         let blur_pipeline = {
             let layout = device.create_pipeline_layout(&PipelineLayoutDescriptor {
                 bind_group_layouts: &[
                     &texture_layout,
+                    &blur.layout,
                 ],
                 push_constant_ranges: &[],
                 label: None,
@@ -453,7 +489,7 @@ impl Context {
                     entry_point: "fs_main",
                     targets: &[
                         ColorTargetState {
-                            format: blur_texture.format,
+                            format: blurred_texture.format,
                             blend: None,
                             write_mask: ColorWrite::default(),
                         },
@@ -518,12 +554,15 @@ impl Context {
             geometry_pipeline,
             shading_pipeline,
             shadow_pipeline,
+            blur_pipeline,
             post_pipeline,
             ambient_pipeline,
             material_texture,
             diffuse_texture,
             normal_texture,
             screen_texture,
+            blurred_texture,
+            blur,
             scene,
             depth_texture,
         })
@@ -658,6 +697,52 @@ impl Context {
                     Light::Point { .. } => {},
                 }
             }
+        }
+
+        // blur pass
+        {
+            let mut render_pass = encoder.begin_render_pass(&RenderPassDescriptor {
+                label: None,
+                depth_stencil_attachment: None,
+                color_attachments: &[
+                    RenderPassColorAttachment {
+                        resolve_target: None,
+                        view: &self.blurred_texture.view,
+                        ops: Operations {
+                            load: LoadOp::Clear(Color::BLACK),
+                            store: true,
+                        }
+                    }
+                ],
+            });
+
+            render_pass.set_pipeline(&self.blur_pipeline);
+            render_pass.set_bind_group(0, &self.screen_texture.bind_group, &[]);
+            render_pass.set_bind_group(1, &self.blur.vertical_bind_group, &[]);
+            render_pass.draw(0..3, 0..1);
+        }
+
+        // second pass
+        {
+            let mut render_pass = encoder.begin_render_pass(&RenderPassDescriptor {
+                label: None,
+                depth_stencil_attachment: None,
+                color_attachments: &[
+                    RenderPassColorAttachment {
+                        resolve_target: None,
+                        view: &self.screen_texture.view,
+                        ops: Operations {
+                            load: LoadOp::Clear(Color::BLACK),
+                            store: true,
+                        }
+                    }
+                ],
+            });
+
+            render_pass.set_pipeline(&self.blur_pipeline);
+            render_pass.set_bind_group(0, &self.blurred_texture.bind_group, &[]);
+            render_pass.set_bind_group(1, &self.blur.horizontal_bind_group, &[]);
+            render_pass.draw(0..3, 0..1);
         }
 
         // post pass

@@ -8,3 +8,4 @@ pub mod scene;
 pub mod light;
 pub mod material;
 pub mod sky;
+pub mod blur;
