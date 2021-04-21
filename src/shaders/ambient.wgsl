@@ -228,8 +228,9 @@ fn fs_main(in: VertexOutput) -> [[location(0)]] vec4<f32> {
     loop {
       if (i >= max_iter) { break; }
       const rand_vec = vec2<f32>(random(in.tex_coords + vec2<f32>(0.0, i)), random(in.tex_coords + vec2<f32>(i, 0.0)));
+      const r = sqrt(random(in.tex_coords + vec2<f32>(i, i)));
       const uniform_dir = square_to_cosine_hemisphere(rand_vec);
-      const point = TBN * uniform_dir;
+      const point = TBN * r * uniform_dir;
       const shadow = is_occluded(position, point, light.range);
       total_shadowed = total_shadowed - shadow;
       i = i + 1.0;

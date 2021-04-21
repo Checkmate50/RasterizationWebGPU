@@ -208,7 +208,7 @@ impl Context {
             });
 
             let shader = {
-                let shader_str = include_wgsl!("../resources/shaders/geometry.wgsl");
+                let shader_str = include_wgsl!("./shaders/geometry.wgsl");
                 device.create_shader_module(&ShaderModuleDescriptor {
                     label: Some("geometry module"),
                     source: ShaderSource::Wgsl(Cow::Borrowed(&shader_str)),
@@ -271,7 +271,7 @@ impl Context {
             });
 
             let shader = {
-                let shader_str = include_wgsl!("../resources/shaders/shadow.wgsl");
+                let shader_str = include_wgsl!("./shaders/shadow.wgsl");
                 device.create_shader_module(&ShaderModuleDescriptor {
                     label: Some("shadow module"),
                     source: ShaderSource::Wgsl(Cow::Borrowed(&shader_str)),
@@ -322,7 +322,7 @@ impl Context {
             });
 
             let shader = {
-                let shader_str = include_wgsl!("../resources/shaders/ambient.wgsl");
+                let shader_str = include_wgsl!("./shaders/ambient.wgsl");
                 device.create_shader_module(&ShaderModuleDescriptor {
                     label: Some("ambient module"),
                     source: ShaderSource::Wgsl(Cow::Borrowed(&shader_str)),
@@ -375,7 +375,7 @@ impl Context {
             });
 
             let shader = {
-                let shader_str = include_str!("../resources/shaders/shading.wgsl");
+                let shader_str = include_str!("./shaders/shading.wgsl");
                 device.create_shader_module(&ShaderModuleDescriptor {
                     label: Some("shading module"),
                     source: ShaderSource::Wgsl(Cow::Borrowed(&shader_str)),
@@ -422,7 +422,7 @@ impl Context {
             });
 
             let shader = {
-                let shader_str = include_wgsl!("../resources/shaders/post.wgsl");
+                let shader_str = include_wgsl!("./shaders/post.wgsl");
                 device.create_shader_module(&ShaderModuleDescriptor {
                     label: Some("post module"),
                     source: ShaderSource::Wgsl(Cow::Borrowed(&shader_str)),
