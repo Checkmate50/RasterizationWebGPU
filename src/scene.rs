@@ -4,7 +4,7 @@ use crate::camera::Camera;
 use crate::material::Material;
 use crate::sky::Sky;
 use crate::light::{LightJSON, Light};
-use anyhow::{Result, anyhow};
+use anyhow::Result;
 use glam::{Mat4, Vec3, Vec4};
 use gltf::{Node, buffer::Data};
 use std::f32::consts::PI;
@@ -83,8 +83,12 @@ fn parse_node(node: Node, mut parent_mat: Mat4, meshes: &mut Vec<Mesh>, buffers:
     }
     if let Some(mesh) = node.mesh() {
         for primitive in mesh.primitives() {
-            let mat_index = primitive.material().index().ok_or(anyhow!("Uh-oh, material without index. Shouldn't happen."))?;
-            meshes.push(Mesh::from_gltf(device, &primitive, buffers, parent_mat, layout, &materials[mat_index])?);
+            if let Some(mat_index) = primitive.material().index() {
+                meshes.push(Mesh::from_gltf(device, &primitive, buffers, parent_mat, layout, &materials[mat_index])?);
+            } else {
+                let material = Material::new(0.5, 1.0, 1.5, Vec3::new(0.5, 0.5, 0.5)).to_buffer(device);
+                meshes.push(Mesh::from_gltf(device, &primitive, buffers, parent_mat, layout, &material)?);
+            }
         }
     }
     for node in node.children() {
