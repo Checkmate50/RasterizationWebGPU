@@ -4,9 +4,10 @@ use winit::window::Window;
 use crate::scene::Scene;
 use crate::light::Light;
 use crate::blur::Blur;
-use crate::texture::Texture;
+use crate::texture::{Texture, MipTexture};
 use std::borrow::Cow;
 use include_wgsl::include_wgsl;
+use std::path::Path;
 
 pub struct Context {
     device: Device,
@@ -17,19 +18,21 @@ pub struct Context {
     shadow_pipeline: RenderPipeline,
     ambient_pipeline: RenderPipeline,
     blur_pipeline: RenderPipeline,
+    blit_pipeline: RenderPipeline,
     depth_texture: Texture,
     material_texture: Texture,
     diffuse_texture: Texture,
     normal_texture: Texture,
-    screen_texture: Texture,
-    blurred_texture: Texture,
-    blur: Blur,
+    blurred_texture_vertical: MipTexture,
+    blurred_texture_horizontal: MipTexture,
+    blurred_texture_all: MipTexture,
+    blurs: [Blur; 4],
     pub scene: Scene,
     pub queue: Queue,
 }
 
 impl Context {
-    pub async fn new(window: &Window) -> Result<Self> {
+    pub async fn new(window: &Window, file_path: impl AsRef<Path>) -> Result<Self> {
 
         let width = window.inner_size().width;
         let height = window.inner_size().height;
@@ -222,7 +225,7 @@ impl Context {
         };
 
         // load mesh
-        let scene = Scene::from_gltf(&device, &object_layout, &light_layout, &depth_layout_comparison)?;
+        let scene = Scene::from_gltf(&device, &object_layout, &light_layout, &depth_layout_comparison, file_path)?;
 
         let blend_component = BlendComponent {
             operation: BlendOperation::Add,
@@ -268,21 +271,9 @@ impl Context {
                     module: &shader,
                     entry_point: "fs_main",
                     targets: &[
-                        ColorTargetState {
-                            format: diffuse_texture.format,
-                            blend: None,
-                            write_mask: ColorWrite::default(),
-                        },
-                        ColorTargetState {
-                            format: material_texture.format,
-                            blend: None,
-                            write_mask: ColorWrite::default(),
-                        },
-                        ColorTargetState {
-                            format: normal_texture.format,
-                            blend: None,
-                            write_mask: ColorWrite::default(),
-                        },
+                        diffuse_texture.format.into(),
+                        material_texture.format.into(),
+                        normal_texture.format.into(),
                     ],
                 }),
                 layout: Some(&layout),
@@ -346,8 +337,11 @@ impl Context {
             })
         };
 
-        // pre-post screen texture
-        let screen_texture = Texture::create_window_texture(&device, &texture_layout, TextureFormat::Rgb10a2Unorm, None, width, height);
+        // pre-post blurred screen texture
+        let num_mips = 5;
+        let blurred_texture_vertical = MipTexture::new(&device, &texture_layout, width, height, num_mips);
+        let blurred_texture_horizontal = MipTexture::new(&device, &texture_layout, width, height, num_mips);
+        let blurred_texture_all = MipTexture::new(&device, &texture_layout, width, height, num_mips);
 
         // set up ambient pipeline
         let ambient_pipeline = {
@@ -384,7 +378,7 @@ impl Context {
                     entry_point: "fs_main",
                     targets: &[
                         ColorTargetState {
-                            format: screen_texture.format,
+                            format: blurred_texture_all.format,
                             blend: Some(BlendState {
                                 color: blend_component.clone(),
                                 alpha: blend_component.clone(),
@@ -437,7 +431,7 @@ impl Context {
                     entry_point: "fs_main",
                     targets: &[
                         ColorTargetState {
-                            format: screen_texture.format,
+                            format: blurred_texture_all.format,
                             blend: Some(BlendState {
                                 color: blend_component.clone(),
                                 alpha: blend_component,
@@ -454,16 +448,20 @@ impl Context {
             })
         };
 
-        // pre-post blurred screen texture
-        let blurred_texture = Texture::create_window_texture(&device, &texture_layout, TextureFormat::Rgb10a2Unorm, None, width, height);
+
+        let blurs = [
+            Blur::new(3.1, 9, &device),
+            Blur::new(6.225, 18, &device), 
+            Blur::new(10.125, 30, &device), 
+            Blur::new(16.4375, 48, &device), 
+        ];
 
         // set up blur pipeline
-        let blur = Blur::new(32.0, 128, &device);
         let blur_pipeline = {
             let layout = device.create_pipeline_layout(&PipelineLayoutDescriptor {
                 bind_group_layouts: &[
                     &texture_layout,
-                    &blur.layout,
+                    &blurs[0].layout,
                 ],
                 push_constant_ranges: &[],
                 label: None,
@@ -488,11 +486,7 @@ impl Context {
                     module: &shader,
                     entry_point: "fs_main",
                     targets: &[
-                        ColorTargetState {
-                            format: blurred_texture.format,
-                            blend: None,
-                            write_mask: ColorWrite::default(),
-                        },
+                        blurred_texture_vertical.format.into(),
                     ],
                 }),
                 layout: Some(&layout),
@@ -507,6 +501,10 @@ impl Context {
         let post_pipeline = {
             let layout = device.create_pipeline_layout(&PipelineLayoutDescriptor {
                 bind_group_layouts: &[
+                    &texture_layout,
+                    &texture_layout,
+                    &texture_layout,
+                    &texture_layout,
                     &texture_layout,
                 ],
                 push_constant_ranges: &[],
@@ -532,11 +530,7 @@ impl Context {
                     module: &shader,
                     entry_point: "fs_main",
                     targets: &[
-                        ColorTargetState {
-                            format,
-                            blend: None,
-                            write_mask: ColorWrite::default(),
-                        },
+                        format.into(),
                     ],
                 }),
                 layout: Some(&layout),
@@ -544,6 +538,44 @@ impl Context {
                 multisample: MultisampleState::default(),
                 depth_stencil: None,
                 label: Some("post pipeline"),
+            })
+        };
+
+        // set up blit pipeline
+        let blit_pipeline = {
+            let layout = device.create_pipeline_layout(&PipelineLayoutDescriptor {
+                bind_group_layouts: &[
+                    &texture_layout,
+                ],
+                push_constant_ranges: &[],
+                label: None,
+            });
+
+            let shader = {
+                let shader_str = include_wgsl!("./shaders/blit.wgsl");
+                device.create_shader_module(&ShaderModuleDescriptor {
+                    label: Some("post module"),
+                    source: ShaderSource::Wgsl(Cow::Borrowed(&shader_str)),
+                    flags: ShaderFlags::VALIDATION,
+                })
+            };
+
+            device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+                label: Some("blit pipeline"),
+                layout: Some(&layout),
+                vertex: VertexState {
+                    module: &shader,
+                    entry_point: "vs_main",
+                    buffers: &[],
+                },
+                fragment: Some(FragmentState {
+                    module: &shader,
+                    entry_point: "fs_main",
+                    targets: &[blurred_texture_vertical.format.into()],
+                }),
+                primitive: PrimitiveState::default(),
+                multisample: MultisampleState::default(),
+                depth_stencil: None,
             })
         };
 
@@ -560,9 +592,11 @@ impl Context {
             material_texture,
             diffuse_texture,
             normal_texture,
-            screen_texture,
-            blurred_texture,
-            blur,
+            blurred_texture_vertical,
+            blurred_texture_horizontal,
+            blurred_texture_all,
+            blit_pipeline,
+            blurs,
             scene,
             depth_texture,
         })
@@ -661,7 +695,7 @@ impl Context {
                 color_attachments: &[
                     RenderPassColorAttachment {
                         resolve_target: None,
-                        view: &self.screen_texture.view,
+                        view: &self.blurred_texture_vertical.views[0],
                         ops: Operations {
                             load: LoadOp::Clear(Color::BLACK),
                             store: true,
@@ -699,50 +733,54 @@ impl Context {
             }
         }
 
+        self.blurred_texture_vertical.generate_mipmaps(&self.blit_pipeline, &mut encoder);
+
         // blur pass
-        {
-            let mut render_pass = encoder.begin_render_pass(&RenderPassDescriptor {
-                label: None,
-                depth_stencil_attachment: None,
-                color_attachments: &[
-                    RenderPassColorAttachment {
-                        resolve_target: None,
-                        view: &self.blurred_texture.view,
-                        ops: Operations {
-                            load: LoadOp::Clear(Color::BLACK),
-                            store: true,
+        for i in 1..=4 {
+            {
+                let mut render_pass = encoder.begin_render_pass(&RenderPassDescriptor {
+                    label: None,
+                    depth_stencil_attachment: None,
+                    color_attachments: &[
+                        RenderPassColorAttachment {
+                            resolve_target: None,
+                            view: &self.blurred_texture_horizontal.views[i],
+                            ops: Operations {
+                                load: LoadOp::Clear(Color::BLACK),
+                                store: true,
+                            }
                         }
-                    }
-                ],
-            });
+                    ],
+                });
 
-            render_pass.set_pipeline(&self.blur_pipeline);
-            render_pass.set_bind_group(0, &self.screen_texture.bind_group, &[]);
-            render_pass.set_bind_group(1, &self.blur.vertical_bind_group, &[]);
-            render_pass.draw(0..3, 0..1);
-        }
+                render_pass.set_pipeline(&self.blur_pipeline);
+                render_pass.set_bind_group(0, &self.blurred_texture_vertical.bind_groups[i], &[]);
+                render_pass.set_bind_group(1, &self.blurs[i - 1].vertical_bind_group, &[]);
+                render_pass.draw(0..3, 0..1);
+            }
 
-        // second pass
-        {
-            let mut render_pass = encoder.begin_render_pass(&RenderPassDescriptor {
-                label: None,
-                depth_stencil_attachment: None,
-                color_attachments: &[
-                    RenderPassColorAttachment {
-                        resolve_target: None,
-                        view: &self.screen_texture.view,
-                        ops: Operations {
-                            load: LoadOp::Clear(Color::BLACK),
-                            store: true,
+            // second blur pass
+            {
+                let mut render_pass = encoder.begin_render_pass(&RenderPassDescriptor {
+                    label: None,
+                    depth_stencil_attachment: None,
+                    color_attachments: &[
+                        RenderPassColorAttachment {
+                            resolve_target: None,
+                            view: &self.blurred_texture_all.views[i],
+                            ops: Operations {
+                                load: LoadOp::Clear(Color::BLACK),
+                                store: true,
+                            }
                         }
-                    }
-                ],
-            });
+                    ],
+                });
 
-            render_pass.set_pipeline(&self.blur_pipeline);
-            render_pass.set_bind_group(0, &self.blurred_texture.bind_group, &[]);
-            render_pass.set_bind_group(1, &self.blur.horizontal_bind_group, &[]);
-            render_pass.draw(0..3, 0..1);
+                render_pass.set_pipeline(&self.blur_pipeline);
+                render_pass.set_bind_group(0, &self.blurred_texture_horizontal.bind_groups[i], &[]);
+                render_pass.set_bind_group(1, &self.blurs[i - 1].horizontal_bind_group, &[]);
+                render_pass.draw(0..3, 0..1);
+            }
         }
 
         // post pass
@@ -763,7 +801,10 @@ impl Context {
             });
 
             render_pass.set_pipeline(&self.post_pipeline);
-            render_pass.set_bind_group(0, &self.screen_texture.bind_group, &[]);
+            render_pass.set_bind_group(0, &self.blurred_texture_vertical.bind_groups[0], &[]);
+            for i in 1..5 {
+                render_pass.set_bind_group(i, &self.blurred_texture_all.bind_groups[i as usize], &[]);
+            }
             render_pass.draw(0..3, 0..1);
         }
 

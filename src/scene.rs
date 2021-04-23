@@ -5,9 +5,10 @@ use crate::material::Material;
 use crate::sky::Sky;
 use crate::light::{LightJSON, Light};
 use anyhow::{Result, anyhow};
-use glam::{Mat4, Vec3};//, Vec4};
+use glam::{Mat4, Vec3, Vec4};
 use gltf::{Node, buffer::Data};
 use std::f32::consts::PI;
+use std::path::Path;
 
 pub struct Scene {
     pub meshes: Vec<Mesh>,
@@ -17,20 +18,24 @@ pub struct Scene {
 }
 
 impl Scene {
-    pub fn from_gltf(device: &Device, mat_layout: &BindGroupLayout, light_layout: &BindGroupLayout, texture_layout: &BindGroupLayout) -> Result<Self> {
-        let (doc, buffers, _) = gltf::import("resources/scenes/bunnyscene.glb")?;
-        let mut lights_raw = LightJSON::from_file("resources/scenes/bunnyscene.json")?;
+    pub fn from_gltf(device: &Device, mat_layout: &BindGroupLayout, light_layout: &BindGroupLayout, texture_layout: &BindGroupLayout, file_path: impl AsRef<Path>) -> Result<Self> {
 
-        //let materials = doc.materials().map(|m| {
-        //    let a = m.pbr_metallic_roughness();
-        //    Material::new(a.roughness_factor(), 1.0, 1.5, Vec4::from(a.base_color_factor()).into()).to_buffer(device)
-        //}).collect();
+        let json_path = file_path.as_ref().with_extension("json");
+        let glb_path = file_path.as_ref().with_extension("glb");
+
+        let (doc, buffers, _) = gltf::import(glb_path)?;
+        let mut lights_raw = LightJSON::from_file(json_path)?;
+
+        let materials = doc.materials().map(|m| {
+            let a = m.pbr_metallic_roughness();
+            Material::new(a.roughness_factor(), 1.0, 1.5, Vec4::from(a.base_color_factor()).into()).to_buffer(device)
+        }).collect();
 
         // materials used in bunnyscene reference aren't actually ones in the gltf file, these are those
-        let materials = vec![
-            Material::new(0.1, 1.0, 1.5, Vec3::new(0.2, 0.3, 0.8)).to_buffer(device),
-            Material::new(0.2, 1.0, 1.5, Vec3::new(0.2, 0.2, 0.2)).to_buffer(device),
-        ];
+        //let materials = vec![
+        //    Material::new(0.1, 1.0, 1.5, Vec3::new(0.2, 0.3, 0.8)).to_buffer(device),
+        //    Material::new(0.2, 1.0, 1.5, Vec3::new(0.2, 0.2, 0.2)).to_buffer(device),
+        //];
 
         let mut meshes = Vec::new();
         let mut maybe_camera = None;
@@ -52,7 +57,7 @@ impl Scene {
             }
         }).collect();
 
-        let sky = Sky::new(30.0 * PI / 180.0, 3.0, device);
+        let sky = Sky::new(80.0 * PI / 180.0, 8.0, device);
 
         Ok(Self {
             meshes,

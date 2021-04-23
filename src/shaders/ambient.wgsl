@@ -219,7 +219,8 @@ fn fs_main(in: VertexOutput) -> [[location(0)]] vec4<f32> {
     let normal = textureSample(normal_texture, normal_sampler, in.tex_coords).xyz;
     let position = get_world_position(in.tex_coords);
     if (normal.x == 0.0 && normal.y == 0.0 && normal.z == 0.0) {
-        return vec4<f32>(sunsky_radiance(normalize(position - inv_camera.position)), 1.0);
+        let result = max(sunsky_radiance(normalize(position - inv_camera.position)), vec3<f32>(0.0, 0.0, 0.0));
+        return vec4<f32>(result, 1.0);
     }
     let TBN = make_tbn(normal);
     var i: f32 = 0.0;

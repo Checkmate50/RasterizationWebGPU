@@ -15,10 +15,17 @@ const WIDTH: u32 = 1200;
 const HEIGHT: u32 = 900;
 
 fn main() -> Result<!> {
+    let file_path = if let Some(file_path) = std::env::args().nth(1) {
+        file_path
+    } else {
+        eprintln!("Error: Please provide a path to a glb file that has an associated json file of the same name.");
+        std::process::exit(1);
+    };
+
     let event_loop = EventLoop::new();
     let size = LogicalSize::new(WIDTH as f64, HEIGHT as f64);
     let window = WindowBuilder::new().with_inner_size(size).build(&event_loop)?;
-    let mut state = block_on(Context::new(&window))?;
+    let mut state = block_on(Context::new(&window, file_path))?;
     let mut clicking = false;
     let mut x_accel = 0.0;
     let mut y_accel = 0.0;

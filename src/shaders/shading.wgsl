@@ -185,7 +185,7 @@ fn fs_main(in: VertexOutput) -> [[location(0)]] vec4<f32> {
 
       let k_light = light.power * max(dot(normal, w_i), 0.0) * (1.0 / (4.0 * PI * r2));
 
-      result = vec4<f32>(brdf  * k_light, 1.0);
+      result = vec4<f32>(brdf * k_light, 1.0);
     }
     return result;
 }

@@ -50,9 +50,15 @@ struct Material {
 var material: Material;
 
 [[stage(fragment)]]
-fn fs_main(in: VertexOutput) -> FragmentOutput {
+fn fs_main(
+    in: VertexOutput,
+    [[builtin(front_facing)]] front_facing: bool,
+    ) -> FragmentOutput {
     var out: FragmentOutput;
     out.normal = vec4<f32>(normalize(in.world_normal), 0.0);
+    if (!front_facing) {
+      out.normal = -out.normal;
+    }
     out.material = vec4<f32>(material.alpha, material.k_s, material.eta, 1.0);
     out.diffuse = vec4<f32>(material.diffuse, 1.0);
     return out;

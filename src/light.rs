@@ -76,7 +76,7 @@ pub enum Light {
 impl Light {
     pub fn new_point(position: Vec3, power: Vec3, device: &Device, layout: &BindGroupLayout, texture_layout: &BindGroupLayout) -> Self {
         let view_mat = Mat4::look_at_rh(position, Vec3::new(0.0, 0.0, 0.0), Vec3::new(0.0, 1.0, 0.0));
-        let proj_mat = Mat4::perspective_rh(1.0, 1.0, 1.0, 20.0);
+        let proj_mat = Mat4::perspective_rh(1.0, 1.0, 1.0, 50.0);
 
         let slice = [
             proj_mat.col(0),
