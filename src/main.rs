@@ -1,8 +1,9 @@
 #![feature(never_type)]
+#![feature(duration_saturating_ops)]
 
 use winit::{
     event_loop::{EventLoop, ControlFlow},
-    event::{Event, WindowEvent, ElementState, DeviceEvent},
+    event::{Event, WindowEvent, ElementState, DeviceEvent, VirtualKeyCode, KeyboardInput},
     window::WindowBuilder,
     dpi::LogicalSize,
 };
@@ -10,6 +11,7 @@ use anyhow::Result;
 use futures::executor::block_on;
 use rasterization::context::Context;
 use glam::{Vec3, Mat3};
+use std::time::{Instant, Duration};
 
 const WIDTH: u32 = 1200;
 const HEIGHT: u32 = 900;
@@ -29,11 +31,48 @@ fn main() -> Result<!> {
     let mut clicking = false;
     let mut x_accel = 0.0;
     let mut y_accel = 0.0;
+    // this time stuff is a bit clunky rn, I wonder if there's a more elegant way
+    let mut start_time = Instant::now();
+    let mut pause_time: Option<Instant> = None;
+    let mut elapsed = 0.0;
     event_loop.run(move |event, _, control_flow| {
+        if pause_time == None {
+            let now = Instant::now();
+            if let Some(duration) = now.checked_duration_since(start_time) {
+                elapsed = duration.as_secs_f32();
+            } else {
+                start_time = Instant::now();
+                elapsed = 0.0;
+            }
+        }
         match event {
             Event::WindowEvent { event: WindowEvent::CloseRequested, .. } => *control_flow = ControlFlow::Exit,
             Event::WindowEvent { event: WindowEvent::MouseInput { state: ElementState::Pressed, .. }, .. } => clicking = true,
             Event::WindowEvent { event: WindowEvent::MouseInput { state: ElementState::Released, .. }, .. } => clicking = false,
+            Event::WindowEvent { event: WindowEvent::KeyboardInput { input: KeyboardInput { virtual_keycode: Some(VirtualKeyCode::Space), state: ElementState::Released, .. }, .. }, .. } => {
+                if let Some(t) = pause_time {
+                    start_time += t.elapsed();
+                    pause_time = None;
+                } else {
+                    pause_time = Some(Instant::now());
+                }
+            },
+            Event::WindowEvent { event: WindowEvent::KeyboardInput { input: KeyboardInput { virtual_keycode: Some(VirtualKeyCode::R), state: ElementState::Released, .. }, .. }, .. } => {
+                start_time = Instant::now();
+                pause_time = None;
+            },
+            Event::WindowEvent { event: WindowEvent::KeyboardInput { input: KeyboardInput { virtual_keycode: Some(VirtualKeyCode::Left), state: ElementState::Pressed, .. }, .. }, .. } => {
+                start_time += Duration::new(0, 50000000);
+                if let Some(t) = pause_time {
+                    elapsed = (start_time.elapsed().saturating_sub(t.elapsed())).as_secs_f32();
+                }
+            },
+            Event::WindowEvent { event: WindowEvent::KeyboardInput { input: KeyboardInput { virtual_keycode: Some(VirtualKeyCode::Right), state: ElementState::Pressed, .. }, .. }, .. } => {
+                start_time -= Duration::new(0, 50000000);
+                if let Some(t) = pause_time {
+                    elapsed = (start_time.elapsed().saturating_sub(t.elapsed())).as_secs_f32();
+                }
+            },
             Event::DeviceEvent { event: DeviceEvent::MouseMotion { delta: (x, y) }, .. } if clicking => {
                 x_accel = x;
                 y_accel = y;
@@ -60,7 +99,7 @@ fn main() -> Result<!> {
                     y_accel = 0.0;
                 }
 
-                if state.render().is_err() {
+                if state.render(elapsed).is_err() {
                     *control_flow = ControlFlow::Exit;
                     return;
                 }

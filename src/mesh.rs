@@ -14,10 +14,12 @@ struct Vertex {
 }
 
 pub struct Mesh {
+    pub index: usize,
     pub vertices: Buffer,
     pub indices: Buffer,
     pub length: u32,
     pub bind_group: BindGroup,
+    pub mat_buffer: Buffer,
 }
 
 impl Mesh {
@@ -43,17 +45,19 @@ impl Mesh {
             usage: BufferUsage::INDEX,
         });
 
-        let bind_group = bind_group_from_mat(device, layout, Mat4::IDENTITY, material);
+        let (bind_group, mat_buffer) = bind_group_from_mat(device, layout, Mat4::IDENTITY, material);
 
         Self {
             vertices,
             indices,
             length,
             bind_group,
+            mat_buffer,
+            index: 0,
         }
     }
 
-    pub fn from_gltf(device: &Device, primitive: &Primitive, buffers: &Vec<Data>, mat: Mat4, layout: &BindGroupLayout, material: &Buffer) -> Result<Self> {
+    pub fn from_gltf(device: &Device, primitive: &Primitive, buffers: &Vec<Data>, mat: Mat4, layout: &BindGroupLayout, material: &Buffer, index: usize) -> Result<Self> {
         let reader = primitive.reader(|buffer| Some(&buffers[buffer.index()]));
         let positions_buf = reader.read_positions().ok_or(anyhow!("Couldn't get positions"))?;
         let normals_buf = reader.read_normals().ok_or(anyhow!("Couldn't get normals"))?;
@@ -79,14 +83,22 @@ impl Mesh {
             usage: BufferUsage::INDEX,
         });
 
-        let bind_group = bind_group_from_mat(device, layout, mat, material);
+        let (bind_group, mat_buffer) = bind_group_from_mat(device, layout, mat, material);
 
         Ok(Self {
             vertices,
             indices,
             length,
             bind_group,
+            mat_buffer,
+            index,
         })
+    }
+
+    pub fn update_matrices(&self, queue: &Queue, matrix: Mat4) {
+        let normal_mat = matrix.inverse().transpose();
+
+        queue.write_buffer(&self.mat_buffer, 0, bytemuck::cast_slice(&[matrix, normal_mat]));
     }
 
     pub fn get_vertex_desc(&self) -> VertexBufferLayout {
@@ -109,17 +121,17 @@ impl Mesh {
     }
 }
 
-fn bind_group_from_mat(device: &Device, layout: &BindGroupLayout, matrix: Mat4, material: &Buffer) -> BindGroup {
+fn bind_group_from_mat(device: &Device, layout: &BindGroupLayout, matrix: Mat4, material: &Buffer) -> (BindGroup, Buffer) {
 
     let normal_mat = matrix.inverse().transpose();
 
     let transform_buffer = device.create_buffer_init(&util::BufferInitDescriptor {
         label: None,
         contents: bytemuck::cast_slice(&[matrix, normal_mat]),
-        usage: BufferUsage::UNIFORM,
+        usage: BufferUsage::UNIFORM | BufferUsage::COPY_DST,
     });
 
-    device.create_bind_group(&BindGroupDescriptor {
+    (device.create_bind_group(&BindGroupDescriptor {
         layout: &layout,
         entries: &[
             BindGroupEntry {
@@ -132,6 +144,6 @@ fn bind_group_from_mat(device: &Device, layout: &BindGroupLayout, matrix: Mat4, 
             }
         ],
         label: None,
-    })
+    }), transform_buffer)
 }
 

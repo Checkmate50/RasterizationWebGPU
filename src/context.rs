@@ -602,7 +602,8 @@ impl Context {
         })
     }
 
-    pub fn render(&self) -> Result<()> {
+    pub fn render(&self, elapsed_time: f32) -> Result<()> {
+        self.scene.animate(elapsed_time, &self.queue);
         let frame = self.swap_chain.get_current_frame()?.output;
 
         let mut encoder = self.device.create_command_encoder(&CommandEncoderDescriptor::default());

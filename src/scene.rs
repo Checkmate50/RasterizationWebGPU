@@ -4,17 +4,20 @@ use crate::camera::Camera;
 use crate::material::Material;
 use crate::sky::Sky;
 use crate::light::{LightJSON, Light};
+use crate::animation::{Animation, Transformation};
 use anyhow::Result;
 use glam::{Mat4, Vec3, Vec4};
-use gltf::{Node, buffer::Data};
+use gltf::{Node, buffer::Data, Document};
 use std::f32::consts::PI;
 use std::path::Path;
 
 pub struct Scene {
-    pub meshes: Vec<Mesh>,
     pub camera: Camera,
-    pub lights: Vec<Light>,
     pub sky: Sky,
+    pub meshes: Vec<Mesh>,
+    pub lights: Vec<Light>,
+    pub animations: Vec<Animation>,
+    pub source: Document,
 }
 
 impl Scene {
@@ -23,13 +26,24 @@ impl Scene {
         let json_path = file_path.as_ref().with_extension("json");
         let glb_path = file_path.as_ref().with_extension("glb");
 
-        let (doc, buffers, _) = gltf::import(glb_path)?;
+        let (source, buffers, _) = gltf::import(glb_path)?;
         let mut lights_raw = LightJSON::from_file(json_path)?;
 
-        let materials = doc.materials().map(|m| {
+        let materials = source.materials().map(|m| {
             let a = m.pbr_metallic_roughness();
             Material::new(a.roughness_factor(), 1.0, 1.5, Vec4::from(a.base_color_factor()).into()).to_buffer(device)
         }).collect();
+
+        let animations = source.animations().map(|a| {
+            let (min, max) = a.samplers().map(|a| {
+                let min = a.input().min().unwrap().as_array().unwrap()[0].as_f64().unwrap();
+                let max = a.input().max().unwrap().as_array().unwrap()[0].as_f64().unwrap();
+                (min, max)
+            }).fold((0.0_f64, 0.0_f64), |acc, x| (acc.0.min(x.0), acc.1.max(x.1)));
+            let duration = (max - min) as f32;
+            let ref_buffers = &buffers;
+            a.channels().map(move |c| Animation::new(c, ref_buffers, duration))
+        }).flatten().collect();
 
         // materials used in bunnyscene reference aren't actually ones in the gltf file, these are those
         //let materials = vec![
@@ -40,11 +54,11 @@ impl Scene {
         let mut meshes = Vec::new();
         let mut maybe_camera = None;
 
-        for node in doc.default_scene().unwrap().nodes() {
+        for node in source.default_scene().unwrap().nodes() {
             parse_node(node, Mat4::IDENTITY, &mut meshes, &buffers, device, mat_layout, &mut maybe_camera, &mut lights_raw, &materials)?;
         }
 
-        let camera = maybe_camera.unwrap_or(Camera::new(&device, Vec3::new(6.0, 8.0, 10.0), Vec3::new(0.0, 0.0, 0.0), Vec3::new(0.0, 1.0, 0.0), 0.1, 50.0, 1.333, 0.26));
+        let camera = maybe_camera.unwrap_or(Camera::new(&device, Vec3::new(6.0, 8.0, 10.0), Vec3::new(0.0, 0.0, 0.0), Vec3::new(0.0, 1.0, 0.0), 0.1, 50.0, 1.333, 0.5));
 
         let lights = lights_raw.into_iter().filter_map(|light| {
             match light {
@@ -64,9 +78,43 @@ impl Scene {
             camera,
             lights,
             sky,
+            animations,
+            source,
         })
     }
 
+    pub fn animate(&self, time: f32, queue: &Queue) {
+        for node in self.source.default_scene().unwrap().nodes() {
+            self.animate_node(node, Mat4::IDENTITY, time, queue);
+        }
+    }
+
+    fn animate_node(&self, node: Node, mut parent_mat: Mat4, time: f32, queue: &Queue) {
+        let mut rotation = Mat4::IDENTITY;
+        let mut translation = Mat4::IDENTITY;
+        let mut scale = Mat4::IDENTITY;
+        for animation in &self.animations {
+            if animation.target == node.index() {
+                if let Some(transform) = animation.get(time) {
+                    match transform {
+                        Transformation::Translate(v) => translation = translation * Mat4::from_translation(v),
+                        Transformation::Rotate(q) => rotation = rotation * Mat4::from_quat(q),
+                        Transformation::Scale(s) => scale = scale * Mat4::from_scale(s),
+                    }
+                }
+            }
+        }
+        parent_mat = parent_mat * translation * rotation * scale * Mat4::from_cols_array_2d(&node.transform().matrix());
+        if let Some(mesh) = node.mesh() {
+            self.meshes.iter()
+                .find(|m| m.index == mesh.index())
+                .unwrap()
+                .update_matrices(queue, parent_mat);
+        }
+        for node in node.children() {
+            self.animate_node(node, parent_mat, time, queue);
+        }
+    }
 }
 
 fn parse_node(node: Node, mut parent_mat: Mat4, meshes: &mut Vec<Mesh>, buffers: &Vec<Data>, device: &Device, layout: &BindGroupLayout, camera: &mut Option<Camera>, lights: &mut Vec<LightJSON>, materials: &Vec<Buffer>) -> Result<()> {
@@ -84,10 +132,10 @@ fn parse_node(node: Node, mut parent_mat: Mat4, meshes: &mut Vec<Mesh>, buffers:
     if let Some(mesh) = node.mesh() {
         for primitive in mesh.primitives() {
             if let Some(mat_index) = primitive.material().index() {
-                meshes.push(Mesh::from_gltf(device, &primitive, buffers, parent_mat, layout, &materials[mat_index])?);
+                meshes.push(Mesh::from_gltf(device, &primitive, buffers, parent_mat, layout, &materials[mat_index], mesh.index())?);
             } else {
                 let material = Material::new(0.5, 1.0, 1.5, Vec3::new(0.5, 0.5, 0.5)).to_buffer(device);
-                meshes.push(Mesh::from_gltf(device, &primitive, buffers, parent_mat, layout, &material)?);
+                meshes.push(Mesh::from_gltf(device, &primitive, buffers, parent_mat, layout, &material, mesh.index())?);
             }
         }
     }
