@@ -29,7 +29,7 @@ impl Animation {
                 let outputs = ss.map(|s| Transformation::Scale(s.into()));
                 inputs.zip(outputs).collect::<BTreeMap<OrderedFloat<f32>, Transformation>>()
             },
-            _ => unimplemented!("Sorry, no morph targets!"),
+            _ => BTreeMap::new(),
         };
         Self {
             target,
