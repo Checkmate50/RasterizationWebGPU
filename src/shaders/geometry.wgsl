@@ -37,6 +37,10 @@ fn mul_scalar_mat(scalar: f32, mat: mat4x4<f32>) -> mat4x4<f32> {
     return mat4x4<f32>(mat.x * scalar, mat.y * scalar, mat.z * scalar, mat.w * scalar);
 }
 
+fn mat4tomat3(m: mat4x4<f32>) -> mat3x3<f32> {
+    return mat3x3<f32>(m.x.xyz, m.y.xyz, m.z.xyz);
+}
+
 [[stage(vertex)]]
 fn vs_main(
     [[location(0)]] position: vec3<f32>,
@@ -56,7 +60,7 @@ fn vs_main(
     );
 
     var out: VertexOutput;
-    out.world_normal = normalize((model_mats.normal * vec4<f32>(normal, 0.0)).xyz);
+    out.world_normal = normalize((model_mats.normal * vec4<f32>(mat4tomat3(bones_mat) * normal, 0.0)).xyz);
     out.position = cam_mats.proj * cam_mats.view * model_mats.model * bones_mat * vec4<f32>(position, 1.0);
     return out;
 }
