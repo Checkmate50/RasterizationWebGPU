@@ -145,12 +145,12 @@ impl Mesh {
                 },
                 VertexAttribute { // weights
                     format: VertexFormat::Float32x4,
-                    offset: (std::mem::size_of::<[f32; 3]>() + std::mem::size_of::<[f32; 4]>()) as BufferAddress,
+                    offset: (std::mem::size_of::<[f32; 3]>() + std::mem::size_of::<[f32; 3]>()) as BufferAddress,
                     shader_location: 2,
                 },
                 VertexAttribute { // joints
                     format: VertexFormat::Uint32x4,
-                    offset: (std::mem::size_of::<[f32; 3]>() + std::mem::size_of::<[f32; 4]>() + std::mem::size_of::<[u32; 4]>()) as BufferAddress,
+                    offset: (std::mem::size_of::<[f32; 3]>() + std::mem::size_of::<[f32; 3]>() + std::mem::size_of::<[u32; 4]>()) as BufferAddress,
                     shader_location: 3,
                 }
             ],

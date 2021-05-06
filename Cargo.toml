@@ -21,4 +21,4 @@ ordered-float = "2.1.1"
 
 [dependencies.wgpu]
 git = "https://github.com/gfx-rs/wgpu-rs.git"
-features = ["trace"]
+features = ["trace", "cross"]

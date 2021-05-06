@@ -134,9 +134,11 @@ impl Scene {
         let mut rotation = Mat4::IDENTITY;
         let mut translation = Mat4::IDENTITY;
         let mut scale = Mat4::IDENTITY;
+        let mut animated = false;
         for animation in &self.animations {
             if animation.target == node.index() {
                 if let Some(transform) = animation.get(time) {
+                    animated = true;
                     match transform {
                         Transformation::Translate(v) => translation = translation * Mat4::from_translation(v),
                         Transformation::Rotate(q) => rotation = rotation * Mat4::from_quat(q),
@@ -145,7 +147,11 @@ impl Scene {
                 }
             }
         }
-        parent_mat = parent_mat * translation * rotation * scale * Mat4::from_cols_array_2d(&node.transform().matrix());
+        if animated {
+            parent_mat = parent_mat * translation * rotation * scale;// * Mat4::from_cols_array_2d(&node.transform().matrix());
+        } else {
+            parent_mat = parent_mat * Mat4::from_cols_array_2d(&node.transform().matrix());
+        }
         if let Some(mesh) = node.mesh() {
             self.meshes.iter()
                 .find(|m| m.index == mesh.index())
