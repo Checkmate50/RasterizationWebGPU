@@ -1488,7 +1488,6 @@ dependencies = [
  "ordered-float",
  "serde",
  "serde_json",
- "tobj",
  "wgpu",
  "winit",
 ]
@@ -1739,12 +1738,6 @@ name = "thunderdome"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7572415bd688d401c52f6e36f4c8e805b9ae1622619303b9fa835d531db0acae"
-
-[[package]]
-name = "tobj"
-version = "2.0.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2468f55be8e59cf7219f1685cf1af4eb00ef2314823a7941a41c8d69538f881b"
 
 [[package]]
 name = "toml"

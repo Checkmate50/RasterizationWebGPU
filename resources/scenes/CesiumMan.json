@@ -1,0 +1,15 @@
+[
+  {
+      "node": "Light",
+      "type": "Point",
+      "position": [4, 5, 5],
+      "power": [500, 500, 350]
+  },
+  {
+      "node": "Ambient",
+      "type": "Ambient",
+      "radiance": [0.12, 0.2, 0.25],
+      "range": 0.2
+  }
+]
+

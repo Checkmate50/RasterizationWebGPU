@@ -96,6 +96,16 @@ impl Context {
                             min_binding_size: None,
                         },
                         count: None,
+                    },
+                    BindGroupLayoutEntry {
+                        binding: 2,
+                        visibility: ShaderStage::VERTEX,
+                        ty: BindingType::Buffer {
+                            ty: BufferBindingType::Uniform,
+                            has_dynamic_offset: false,
+                            min_binding_size: None,
+                        },
+                        count: None,
                     }
                 ],
                 label: None,
@@ -651,7 +661,7 @@ impl Context {
             render_pass.set_pipeline(&self.geometry_pipeline);
             render_pass.set_bind_group(0, &self.scene.camera.bind_group, &[]);
             for mesh in &self.scene.meshes {
-                render_pass.set_bind_group(1, &mesh.bind_group, &[]);
+                render_pass.set_bind_group(1, mesh.bind_group.as_ref().expect("Unbound mesh!"), &[]);
                 render_pass.set_vertex_buffer(0, mesh.vertices.slice(..));
                 render_pass.set_index_buffer(mesh.indices.slice(..), IndexFormat::Uint32);
                 render_pass.draw_indexed(0..mesh.length, 0, 0..1);
@@ -678,7 +688,7 @@ impl Context {
                     render_pass.set_pipeline(&self.shadow_pipeline);
                     render_pass.set_bind_group(0, &bind_group, &[]);
                     for mesh in &self.scene.meshes {
-                        render_pass.set_bind_group(1, &mesh.bind_group, &[]);
+                        render_pass.set_bind_group(1, &mesh.bind_group.as_ref().expect("Unbound mesh!"), &[]);
                         render_pass.set_vertex_buffer(0, mesh.vertices.slice(..));
                         render_pass.set_index_buffer(mesh.indices.slice(..), IndexFormat::Uint32);
                         render_pass.draw_indexed(0..mesh.length, 0, 0..1);
