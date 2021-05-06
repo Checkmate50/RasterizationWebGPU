@@ -101,7 +101,7 @@ impl Context {
                         binding: 2,
                         visibility: ShaderStage::VERTEX,
                         ty: BindingType::Buffer {
-                            ty: BufferBindingType::Uniform,
+                            ty: BufferBindingType::Storage { read_only: true },
                             has_dynamic_offset: false,
                             min_binding_size: None,
                         },

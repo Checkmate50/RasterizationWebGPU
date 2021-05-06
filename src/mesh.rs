@@ -103,7 +103,7 @@ impl Mesh {
         let joint_matrices_buffer = device.create_buffer_init(&util::BufferInitDescriptor {
             label: Some("joint matrices buffer"),
             contents: bytemuck::cast_slice(&joint_matrices),
-            usage: BufferUsage::UNIFORM | BufferUsage::COPY_DST,
+            usage: BufferUsage::STORAGE | BufferUsage::COPY_DST,
         });
 
         self.bind_group = Some(device.create_bind_group(&BindGroupDescriptor {
