@@ -26,6 +26,7 @@ pub struct Mesh {
     pub bind_group: Option<BindGroup>,
     pub transform_buffer: Option<Buffer>,
     pub joint_matrices_buffer: Option<Buffer>,
+    pub joint_normal_matrices_buffer: Option<Buffer>,
     pub matrix: RefCell<Mat4>,
 }
 
@@ -75,6 +76,7 @@ impl Mesh {
             bind_group: None,
             transform_buffer: None,
             joint_matrices_buffer: None,
+            joint_normal_matrices_buffer: None,
         })
     }
 
@@ -85,14 +87,19 @@ impl Mesh {
         queue.write_buffer(self.transform_buffer.as_ref().expect("Unbound mesh!"), 0, bytemuck::cast_slice(&[matrix, normal_mat]));
     }
 
-    pub fn update_joints(&self, queue: &Queue, joints: &[Mat4]) {
-        queue.write_buffer(self.joint_matrices_buffer.as_ref().expect("Unbound mesh!"), 0, bytemuck::cast_slice(&joints));
+    pub fn update_joints(&self, queue: &Queue, joint_matrices: &[Mat4]) {
+        let joint_normal_matrices = joint_matrices.iter().map(|m| m.inverse().transpose()).collect::<Vec<Mat4>>();
+
+        queue.write_buffer(self.joint_matrices_buffer.as_ref().expect("Unbound mesh!"), 0, bytemuck::cast_slice(&joint_matrices));
+        queue.write_buffer(self.joint_normal_matrices_buffer.as_ref().expect("Unbound mesh!"), 0, bytemuck::cast_slice(&joint_normal_matrices));
     }
 
     pub fn bind(&mut self, device: &Device, layout: &BindGroupLayout, joint_matrices: &[Mat4], material: &Buffer) {
 
         let matrix = *self.matrix.borrow();
         let normal_mat = matrix.inverse().transpose();
+
+        let joint_normal_matrices = joint_matrices.iter().map(|m| m.inverse().transpose()).collect::<Vec<Mat4>>();
 
         let transform_buffer = device.create_buffer_init(&util::BufferInitDescriptor {
             label: Some("mesh transform buffer"),
@@ -103,6 +110,12 @@ impl Mesh {
         let joint_matrices_buffer = device.create_buffer_init(&util::BufferInitDescriptor {
             label: Some("joint matrices buffer"),
             contents: bytemuck::cast_slice(&joint_matrices),
+            usage: BufferUsage::STORAGE | BufferUsage::COPY_DST,
+        });
+
+        let joint_normal_matrices_buffer = device.create_buffer_init(&util::BufferInitDescriptor {
+            label: Some("joint normal matrices buffer"),
+            contents: bytemuck::cast_slice(&joint_normal_matrices),
             usage: BufferUsage::STORAGE | BufferUsage::COPY_DST,
         });
 
@@ -120,12 +133,17 @@ impl Mesh {
                 BindGroupEntry {
                     binding: 2,
                     resource: joint_matrices_buffer.as_entire_binding(),
+                },
+                BindGroupEntry {
+                    binding: 3,
+                    resource: joint_normal_matrices_buffer.as_entire_binding(),
                 }
             ],
             label: Some("mesh bind group"),
         }));
         self.transform_buffer = Some(transform_buffer);
         self.joint_matrices_buffer = Some(joint_matrices_buffer);
+        self.joint_normal_matrices_buffer = Some(joint_normal_matrices_buffer);
     }
 
     pub fn get_vertex_desc(&self) -> VertexBufferLayout {
