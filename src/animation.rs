@@ -40,12 +40,17 @@ impl Animation {
 
     pub fn get(&self, time: f32) -> Option<Transformation> {
         let local_time = time % self.duration;
-        let (prev_time, prev) = self.map.range(..OrderedFloat(local_time)).next_back()?;
-        let (next_time, next) = self.map.range(OrderedFloat(local_time)..).next()?;
-        let interp_time = (local_time - prev_time.0) / (next_time.0 - prev_time.0);
+        let (OrderedFloat(prev_time), prev) = self.map.range(..OrderedFloat(local_time)).next_back()?;
+        let (OrderedFloat(next_time), next) = self.map.range(OrderedFloat(local_time)..).next()?;
+        let interp_time = (local_time - prev_time) / (next_time - prev_time);
         Some(match (prev, next) {
             (Transformation::Translate(v0), Transformation::Translate(v1)) => Transformation::Translate((*v0).lerp(*v1, interp_time)),
-            (Transformation::Rotate(q0), Transformation::Rotate(q1)) => Transformation::Rotate((*q0).slerp(*q1, interp_time)),
+            (Transformation::Rotate(q0), Transformation::Rotate(mut q1)) => {
+                if q0.dot(q1) < 0.0 {
+                    q1 = -(q1);
+                }
+                Transformation::Rotate((*q0).slerp(q1, interp_time).normalize())
+            }
             (Transformation::Scale(v0), Transformation::Scale(v1)) => Transformation::Scale((*v0).lerp(*v1, interp_time)),
             _ => unreachable!("By all laws of physics, impossible!"),
         })

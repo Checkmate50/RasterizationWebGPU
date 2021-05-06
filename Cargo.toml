@@ -10,7 +10,7 @@ winit = "0.24.0"
 futures = "0.3.13"
 anyhow = "1.0.39"
 bytemuck = { version = "1.5.1", features = ["derive"] }
-glam = { version = "0.13.1", features = ["bytemuck", "serde", "mint"] }
+glam = { version = "0.13.1", features = ["bytemuck", "serde", "mint", "debug-glam-assert"] }
 gltf = "0.15.2"
 serde = { version = "1.0", features = ["derive"] }
 include_wgsl = "1.0"
