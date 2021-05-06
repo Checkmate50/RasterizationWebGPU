@@ -108,7 +108,7 @@ impl Context {
                         count: None,
                     }
                 ],
-                label: None,
+                label: Some("object layout"),
             });
 
             let light_layout = device.create_bind_group_layout(&BindGroupLayoutDescriptor {
@@ -124,7 +124,7 @@ impl Context {
                         count: None,
                     }
                 ],
-                label: None,
+                label: Some("light layout"),
             });
 
             let texture_layout = device.create_bind_group_layout(&BindGroupLayoutDescriptor {
@@ -159,7 +159,7 @@ impl Context {
                         count: None,
                     }
                 ],
-                label: None,
+                label: Some("texture layout"),
             });
 
             let depth_layout = device.create_bind_group_layout(&BindGroupLayoutDescriptor {
@@ -194,7 +194,7 @@ impl Context {
                         count: None,
                     }
                 ],
-                label: None,
+                label: Some("depth layout"),
             });
 
             let depth_layout_comparison = device.create_bind_group_layout(&BindGroupLayoutDescriptor {
@@ -229,7 +229,7 @@ impl Context {
                         count: None,
                     }
                 ],
-                label: None,
+                label: Some("depth layout comparison"),
             });
             (object_layout, light_layout, texture_layout, depth_layout, depth_layout_comparison)
         };
@@ -257,7 +257,7 @@ impl Context {
                     &object_layout,
                 ],
                 push_constant_ranges: &[],
-                label: None,
+                label: Some("geometry pipeline layout"),
             });
 
             let shader = {
@@ -308,7 +308,7 @@ impl Context {
                     &object_layout,
                 ],
                 push_constant_ranges: &[],
-                label: None,
+                label: Some("shadow pipeline layout"),
             });
 
             let shader = {
@@ -365,7 +365,7 @@ impl Context {
                     &scene.sky.layout,
                 ],
                 push_constant_ranges: &[],
-                label: None,
+                label: Some("ambient pipeline"),
             });
 
             let shader = {
@@ -418,7 +418,7 @@ impl Context {
                     &depth_layout_comparison,
                 ],
                 push_constant_ranges: &[],
-                label: None,
+                label: Some("shading pipeline layout"),
             });
 
             let shader = {
@@ -474,7 +474,7 @@ impl Context {
                     &blurs[0].layout,
                 ],
                 push_constant_ranges: &[],
-                label: None,
+                label: Some("blur pipeline layout"),
             });
 
             let shader = {
@@ -518,7 +518,7 @@ impl Context {
                     &texture_layout,
                 ],
                 push_constant_ranges: &[],
-                label: None,
+                label: Some("post pipeline layout"),
             });
 
             let shader = {
@@ -558,7 +558,7 @@ impl Context {
                     &texture_layout,
                 ],
                 push_constant_ranges: &[],
-                label: None,
+                label: Some("blit pipeline layout"),
             });
 
             let shader = {
@@ -621,7 +621,7 @@ impl Context {
         // geometry pass
         {
             let mut render_pass = encoder.begin_render_pass(&RenderPassDescriptor {
-                label: None,
+                label: Some("geometry pass"),
                 depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
                     view: &self.depth_texture.view,
                     depth_ops: Some(Operations {
@@ -673,7 +673,7 @@ impl Context {
             match light {
                 Light::Point { texture, bind_group } => {
                     let mut render_pass = encoder.begin_render_pass(&RenderPassDescriptor {
-                        label: None,
+                        label: Some("shadow pass"),
                         depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
                             view: &texture.view,
                             depth_ops: Some(Operations {
@@ -701,7 +701,7 @@ impl Context {
         // shading pass
         {
             let mut render_pass = encoder.begin_render_pass(&RenderPassDescriptor {
-                label: None,
+                label: Some("shading pass"),
                 depth_stencil_attachment: None,
                 color_attachments: &[
                     RenderPassColorAttachment {
@@ -750,7 +750,7 @@ impl Context {
         for i in 1..=4 {
             {
                 let mut render_pass = encoder.begin_render_pass(&RenderPassDescriptor {
-                    label: None,
+                    label: Some("blur pass 1"),
                     depth_stencil_attachment: None,
                     color_attachments: &[
                         RenderPassColorAttachment {
@@ -773,7 +773,7 @@ impl Context {
             // second blur pass
             {
                 let mut render_pass = encoder.begin_render_pass(&RenderPassDescriptor {
-                    label: None,
+                    label: Some("blur pass 2"),
                     depth_stencil_attachment: None,
                     color_attachments: &[
                         RenderPassColorAttachment {
@@ -797,7 +797,7 @@ impl Context {
         // post pass
         {
             let mut render_pass = encoder.begin_render_pass(&RenderPassDescriptor {
-                label: None,
+                label: Some("post pass"),
                 depth_stencil_attachment: None,
                 color_attachments: &[
                     RenderPassColorAttachment {

@@ -42,13 +42,13 @@ impl Camera {
                     count: None,
                 }
             ],
-            label: None,
+            label: Some("camera layout"),
         });
 
         let view_mat = Mat4::look_at_rh(eye, target, up);
         let proj_mat = Mat4::perspective_rh(vfov, aspect, near, far);
         let mat_buffer = device.create_buffer_init(&util::BufferInitDescriptor {
-            label: None,
+            label: Some("camera mat buffer"),
             contents: bytemuck::cast_slice(&[proj_mat, view_mat]),
             usage: BufferUsage::UNIFORM | BufferUsage::COPY_DST,
         });
@@ -69,7 +69,7 @@ impl Camera {
         ];
 
         let pos_buffer = device.create_buffer_init(&util::BufferInitDescriptor {
-            label: None,
+            label: Some("camera pos buffer"),
             contents: bytemuck::cast_slice(&slice),
             usage: BufferUsage::UNIFORM | BufferUsage::COPY_DST,
         });
@@ -86,7 +86,7 @@ impl Camera {
                     resource: pos_buffer.as_entire_binding(),
                 }
             ],
-            label: None,
+            label: Some("camera bind group"),
         });
         
         Self {

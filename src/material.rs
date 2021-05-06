@@ -24,7 +24,7 @@ impl Material {
 
     pub fn to_buffer(&self, device: &Device) -> Buffer {
         device.create_buffer_init(&util::BufferInitDescriptor {
-            label: None,
+            label: Some("material buffer"),
             contents: self.as_std140().as_bytes(),
             usage: BufferUsage::UNIFORM,
         })

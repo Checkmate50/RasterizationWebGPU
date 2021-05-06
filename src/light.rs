@@ -92,7 +92,7 @@ impl Light {
         ];
 
         let buffer = device.create_buffer_init(&util::BufferInitDescriptor {
-            label: None,
+            label: Some("light buffer"),
             contents: bytemuck::cast_slice(&slice),
             usage: BufferUsage::UNIFORM,
         });
@@ -105,7 +105,7 @@ impl Light {
                     resource: buffer.as_entire_binding(),
                 }
             ],
-            label: None,
+            label: Some("light bind group"),
         });
 
         let texture = Texture::create_window_texture(&device, &texture_layout, TextureFormat::Depth32Float, Some(CompareFunction::LessEqual), 1024, 1024);
@@ -126,7 +126,7 @@ impl Light {
         ];
 
         let buffer = device.create_buffer_init(&util::BufferInitDescriptor {
-            label: None,
+            label: Some("ambient light buffer"),
             contents: bytemuck::cast_slice(&slice),
             usage: BufferUsage::UNIFORM,
         });
@@ -139,7 +139,7 @@ impl Light {
                     resource: buffer.as_entire_binding(),
                 }
             ],
-            label: None,
+            label: Some("ambient light label"),
         });
 
         Self::Ambient {

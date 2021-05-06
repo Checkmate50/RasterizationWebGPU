@@ -23,7 +23,7 @@ impl Texture {
             dimension: TextureDimension::D2,
             format,
             usage: TextureUsage::RENDER_ATTACHMENT | TextureUsage::SAMPLED,
-            label: None,
+            label: Some("texture"),
         });
 
         let view = texture.create_view(&TextureViewDescriptor::default());
@@ -39,7 +39,7 @@ impl Texture {
         });
 
         let dim_buffer = device.create_buffer_init(&util::BufferInitDescriptor {
-            label: None,
+            label: Some("texture dimensions"),
             contents: bytemuck::cast_slice(&[width as f32, height as f32]),
             usage: BufferUsage::UNIFORM | BufferUsage::COPY_DST,
         });
@@ -92,7 +92,7 @@ impl MipTexture {
             sample_count: 1,
             dimension: TextureDimension::D2,
             usage: TextureUsage::RENDER_ATTACHMENT | TextureUsage::SAMPLED,
-            label: None,
+            label: Some("mip texture"),
         });
 
         let sampler = device.create_sampler(&SamplerDescriptor {
@@ -120,7 +120,7 @@ impl MipTexture {
 
         let bind_groups = (0..mip_level_count).map(|i| {
             let dim_buffer = device.create_buffer_init(&util::BufferInitDescriptor {
-                label: None,
+                label: Some("mip dim buffer"),
                 contents: bytemuck::cast_slice(&[(width >> i) as f32, (height >> i) as f32]),
                 usage: BufferUsage::UNIFORM,
             });
@@ -151,7 +151,7 @@ impl MipTexture {
     pub fn generate_mipmaps(&self, pipeline: &RenderPipeline, encoder: &mut CommandEncoder) {
         for i in 1..self.mip_level_count as usize {
             let mut rpass = encoder.begin_render_pass(&RenderPassDescriptor {
-                label: None,
+                label: Some("mip pass"),
                 color_attachments: &[RenderPassColorAttachment {
                     view: &self.views[i],
                     resolve_target: None,

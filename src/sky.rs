@@ -149,11 +149,11 @@ impl Sky {
                     count: None,
                 },
             ],
-            label: None,
+            label: Some("sky layout"),
         });
 
         let buffer = device.create_buffer_init(&util::BufferInitDescriptor {
-            label: None,
+            label: Some("sky buffer"),
             contents: bytes.as_std140().as_bytes(),
             usage: BufferUsage::UNIFORM,
         });
@@ -166,7 +166,7 @@ impl Sky {
                     resource: buffer.as_entire_binding(),
                 },
             ],
-            label: None,
+            label: Some("sky bind group"),
         });
 
 

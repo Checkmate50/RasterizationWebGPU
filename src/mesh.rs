@@ -50,14 +50,14 @@ impl Mesh {
         }).collect::<Vec<_>>();
 
         let vertices = device.create_buffer_init(&util::BufferInitDescriptor {
-            label: None,
+            label: Some("vertices buffer"),
             contents: bytemuck::cast_slice(&raw_vertices),
             usage: BufferUsage::VERTEX,
         });
 
         let length = indices_buf.len() as u32;
         let indices = device.create_buffer_init(&util::BufferInitDescriptor {
-            label: None,
+            label: Some("indices buffer"),
             contents: bytemuck::cast_slice(&indices_buf),
             usage: BufferUsage::INDEX,
         });
@@ -95,13 +95,13 @@ impl Mesh {
         let normal_mat = matrix.inverse().transpose();
 
         let transform_buffer = device.create_buffer_init(&util::BufferInitDescriptor {
-            label: None,
+            label: Some("mesh transform buffer"),
             contents: bytemuck::cast_slice(&[matrix, normal_mat]),
             usage: BufferUsage::UNIFORM | BufferUsage::COPY_DST,
         });
 
         let joint_matrices_buffer = device.create_buffer_init(&util::BufferInitDescriptor {
-            label: None,
+            label: Some("joint matrices buffer"),
             contents: bytemuck::cast_slice(&joint_matrices),
             usage: BufferUsage::UNIFORM | BufferUsage::COPY_DST,
         });
@@ -122,7 +122,7 @@ impl Mesh {
                     resource: joint_matrices_buffer.as_entire_binding(),
                 }
             ],
-            label: None,
+            label: Some("mesh bind group"),
         }));
         self.transform_buffer = Some(transform_buffer);
         self.joint_matrices_buffer = Some(joint_matrices_buffer);

@@ -148,7 +148,7 @@ impl Scene {
             }
         }
         if animated {
-            parent_mat = parent_mat * translation * rotation * scale;// * Mat4::from_cols_array_2d(&node.transform().matrix());
+            parent_mat = parent_mat * translation * rotation * scale;
         } else {
             parent_mat = parent_mat * Mat4::from_cols_array_2d(&node.transform().matrix());
         }

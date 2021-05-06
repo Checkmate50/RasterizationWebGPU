@@ -48,13 +48,13 @@ impl Blur {
         };
 
         let buffer_horizontal = device.create_buffer_init(&util::BufferInitDescriptor {
-            label: None,
+            label: Some("blur buffer horizontal"),
             contents: blur_data_horizontal.as_std140().as_bytes(),
             usage: BufferUsage::UNIFORM,
         });
 
         let buffer_vertical = device.create_buffer_init(&util::BufferInitDescriptor {
-            label: None,
+            label: Some("blur buffer vertical"),
             contents: blur_data_vertical.as_std140().as_bytes(),
             usage: BufferUsage::UNIFORM,
         });
