@@ -125,7 +125,7 @@ impl Camera {
     pub fn update(&mut self, queue: &Queue, mat: Mat3) {
         self.eye = mat * self.eye;
         self.target = mat * self.target;
-        self.up = mat * self.up;
+        self.up = (mat * self.up).normalize();
         let u_proj = self.get_proj_mat();
         let u_view = self.get_view_mat();
         let inv_u_proj = u_proj.inverse();
