@@ -106,16 +106,6 @@ impl Context {
                             min_binding_size: None,
                         },
                         count: None,
-                    },
-                    BindGroupLayoutEntry {
-                        binding: 3,
-                        visibility: ShaderStage::VERTEX,
-                        ty: BindingType::Buffer {
-                            ty: BufferBindingType::Storage { read_only: true },
-                            has_dynamic_offset: false,
-                            min_binding_size: None,
-                        },
-                        count: None,
                     }
                 ],
                 label: Some("object layout"),

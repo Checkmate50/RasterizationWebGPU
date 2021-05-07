@@ -29,9 +29,6 @@ struct MatArray {
 [[group(1), binding(2)]]
 var joint_mats: [[access(read)]] MatArray;
 
-[[group(1), binding(3)]]
-var joint_normal_mats: [[access(read)]] MatArray;
-
 fn add_mats(m0: mat4x4<f32>, m1: mat4x4<f32>) -> mat4x4<f32> {
     return mat4x4<f32>(m0.x + m1.x, m0.y + m1.y, m0.z + m1.z, m0.w + m1.w);
 }
@@ -62,19 +59,8 @@ fn vs_main(
       )
     );
 
-    let bones_normal_mat = add_mats(
-      add_mats(
-          mul_scalar_mat(weights.x, joint_normal_mats.mats[joints.x]),
-          mul_scalar_mat(weights.y, joint_normal_mats.mats[joints.y]),
-      ),
-      add_mats(
-          mul_scalar_mat(weights.z, joint_normal_mats.mats[joints.z]),
-          mul_scalar_mat(weights.w, joint_normal_mats.mats[joints.w])
-      )
-    );
-
     var out: VertexOutput;
-    out.world_normal = normalize((model_mats.normal * bones_normal_mat * vec4<f32>(normal, 0.0)).xyz);
+    out.world_normal = normalize((model_mats.normal * vec4<f32>(mat4tomat3(bones_mat) * normal, 0.0)).xyz);
     out.position = cam_mats.proj * cam_mats.view * model_mats.model * bones_mat * vec4<f32>(position, 1.0);
     return out;
 }
