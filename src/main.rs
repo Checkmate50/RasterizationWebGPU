@@ -1,5 +1,4 @@
 #![feature(never_type)]
-#![feature(duration_saturating_ops)]
 
 use winit::{
     event_loop::{EventLoop, ControlFlow},
