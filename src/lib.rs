@@ -1,4 +1,5 @@
 #![feature(array_chunks)]
+#![feature(map_first_last)]
 
 pub mod context;
 pub mod mesh;

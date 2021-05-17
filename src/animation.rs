@@ -40,24 +40,28 @@ impl Animation {
 
     pub fn get(&self, time: f32) -> Option<Transformation> {
         let local_time = time % self.duration;
-        let (OrderedFloat(prev_time), prev) = self.map.range(..OrderedFloat(local_time)).next_back()?;
+        let (OrderedFloat(prev_time), prev) = self.map.range(..OrderedFloat(local_time)).next_back().unwrap_or(self.map.first_key_value()?);
         let (OrderedFloat(next_time), next) = self.map.range(OrderedFloat(local_time)..).next()?;
         let interp_time = (local_time - prev_time) / (next_time - prev_time);
-        Some(match (prev, next) {
-            (Transformation::Translate(v0), Transformation::Translate(v1)) => Transformation::Translate((*v0).lerp(*v1, interp_time)),
-            (Transformation::Rotate(q0), Transformation::Rotate(mut q1)) => {
-                if q0.dot(q1) < 0.0 {
-                    q1 = -(q1);
+        Some(if prev == next {
+             *prev
+        } else {
+            match (prev, next) {
+                (Transformation::Translate(v0), Transformation::Translate(v1)) => Transformation::Translate((*v0).lerp(*v1, interp_time)),
+                (Transformation::Rotate(q0), Transformation::Rotate(mut q1)) => {
+                    if q0.dot(q1) < 0.0 {
+                        q1 = -(q1);
+                    }
+                    Transformation::Rotate((*q0).slerp(q1, interp_time).normalize())
                 }
-                Transformation::Rotate((*q0).slerp(q1, interp_time).normalize())
+                (Transformation::Scale(v0), Transformation::Scale(v1)) => Transformation::Scale((*v0).lerp(*v1, interp_time)),
+                _ => unreachable!("By all laws of physics, impossible!"),
             }
-            (Transformation::Scale(v0), Transformation::Scale(v1)) => Transformation::Scale((*v0).lerp(*v1, interp_time)),
-            _ => unreachable!("By all laws of physics, impossible!"),
         })
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum Transformation {
     Scale(Vec3),
     Translate(Vec3),
