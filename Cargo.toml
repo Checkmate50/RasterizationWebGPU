@@ -1,25 +1,22 @@
 [package]
 name = "rasterization"
 version = "0.1.0"
-edition = "2018"
+edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-winit = "0.24.0"
-futures = "0.3.13"
-anyhow = "1.0.39"
-bytemuck = { version = "1.5.1", features = ["derive"] }
-glam = { version = "0.13.1", features = ["bytemuck", "serde", "mint", "debug-glam-assert"] }
-gltf = "0.15.2"
+winit = "0.25"
+futures = "0.3"
+anyhow = "1.0"
+bytemuck = { version = "1.7", features = ["derive"] }
+glam = { version = "0.19", features = ["bytemuck", "serde", "debug-glam-assert"] }
+gltf = "0.16"
 serde = { version = "1.0", features = ["derive"] }
-include_wgsl = "1.0"
+include_wgsl = "1.1"
 serde_json = "1.0"
-crevice = "0.6.0"
-mint = "0.5.6"
-ordered-float = "2.1.1"
-env_logger = "0.8"
+crevice = { version = "0.8", features = ["glam"] }
+ordered-float = "2.8"
+env_logger = "0.9"
+wgpu = "0.11"
 
-[dependencies.wgpu]
-git = "https://github.com/gfx-rs/wgpu-rs.git"
-features = ["trace", "cross"]

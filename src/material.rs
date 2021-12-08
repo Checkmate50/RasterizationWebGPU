@@ -1,6 +1,5 @@
 use wgpu::*;
 use wgpu::util::DeviceExt;
-use mint::Vector3;
 use glam::Vec3;
 use crevice::std140::{AsStd140, Std140};
 
@@ -9,7 +8,7 @@ pub struct Material {
     alpha: f32,
     k_s: f32,
     eta: f32,
-    diffuse: Vector3<f32>,
+    diffuse: Vec3,
 }
 
 impl Material {
@@ -18,7 +17,7 @@ impl Material {
             alpha,
             k_s,
             eta,
-            diffuse: diffuse.into(),
+            diffuse,
         }
     }
 
@@ -26,7 +25,7 @@ impl Material {
         device.create_buffer_init(&util::BufferInitDescriptor {
             label: Some("material buffer"),
             contents: self.as_std140().as_bytes(),
-            usage: BufferUsage::UNIFORM,
+            usage: BufferUsages::UNIFORM,
         })
     }
 }

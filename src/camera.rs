@@ -23,7 +23,7 @@ impl Camera {
             entries: &[
                 BindGroupLayoutEntry {
                     binding: 0,
-                    visibility: ShaderStage::VERTEX | ShaderStage::FRAGMENT,
+                    visibility: ShaderStages::VERTEX | ShaderStages::FRAGMENT,
                     ty: BindingType::Buffer {
                         ty: BufferBindingType::Uniform,
                         has_dynamic_offset: false,
@@ -33,7 +33,7 @@ impl Camera {
                 },
                 BindGroupLayoutEntry {
                     binding: 1,
-                    visibility: ShaderStage::FRAGMENT,
+                    visibility: ShaderStages::FRAGMENT,
                     ty: BindingType::Buffer {
                         ty: BufferBindingType::Uniform,
                         has_dynamic_offset: false,
@@ -50,7 +50,7 @@ impl Camera {
         let mat_buffer = device.create_buffer_init(&util::BufferInitDescriptor {
             label: Some("camera mat buffer"),
             contents: bytemuck::cast_slice(&[proj_mat, view_mat]),
-            usage: BufferUsage::UNIFORM | BufferUsage::COPY_DST,
+            usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
         });
 
         let inv_proj_mat = proj_mat.inverse();
@@ -71,7 +71,7 @@ impl Camera {
         let pos_buffer = device.create_buffer_init(&util::BufferInitDescriptor {
             label: Some("camera pos buffer"),
             contents: bytemuck::cast_slice(&slice),
-            usage: BufferUsage::UNIFORM | BufferUsage::COPY_DST,
+            usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
         });
 
         let bind_group = device.create_bind_group(&BindGroupDescriptor {

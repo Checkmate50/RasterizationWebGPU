@@ -1,12 +1,11 @@
 use wgpu::*;
 use wgpu::util::DeviceExt;
 use glam::Vec2;
-use mint::Vector2;
 use crevice::std140::{AsStd140, Std140};
 
 #[derive(AsStd140)]
 pub struct BlurData {
-    dir: Vector2<f32>,
+    dir: Vec2,
     stdev: f32,
     radius: i32,
 }
@@ -23,7 +22,7 @@ impl Blur {
             entries: &[
                 BindGroupLayoutEntry {
                     binding: 0,
-                    visibility: ShaderStage::FRAGMENT,
+                    visibility: ShaderStages::FRAGMENT,
                     ty: BindingType::Buffer {
                         ty: BufferBindingType::Uniform,
                         has_dynamic_offset: false,
@@ -36,13 +35,13 @@ impl Blur {
         });
 
         let blur_data_horizontal = BlurData {
-            dir: Vec2::new(1.0, 0.0).into(),
+            dir: Vec2::new(1.0, 0.0),
             stdev,
             radius,
         };
 
         let blur_data_vertical = BlurData {
-            dir: Vec2::new(0.0, 1.0).into(),
+            dir: Vec2::new(0.0, 1.0),
             stdev,
             radius,
         };
@@ -50,13 +49,13 @@ impl Blur {
         let buffer_horizontal = device.create_buffer_init(&util::BufferInitDescriptor {
             label: Some("blur buffer horizontal"),
             contents: blur_data_horizontal.as_std140().as_bytes(),
-            usage: BufferUsage::UNIFORM,
+            usage: BufferUsages::UNIFORM,
         });
 
         let buffer_vertical = device.create_buffer_init(&util::BufferInitDescriptor {
             label: Some("blur buffer vertical"),
             contents: blur_data_vertical.as_std140().as_bytes(),
-            usage: BufferUsage::UNIFORM,
+            usage: BufferUsages::UNIFORM,
         });
 
         let horizontal_bind_group = device.create_bind_group(&BindGroupDescriptor {

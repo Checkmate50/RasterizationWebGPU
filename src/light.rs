@@ -94,7 +94,7 @@ impl Light {
         let buffer = device.create_buffer_init(&util::BufferInitDescriptor {
             label: Some("light buffer"),
             contents: bytemuck::cast_slice(&slice),
-            usage: BufferUsage::UNIFORM,
+            usage: BufferUsages::UNIFORM,
         });
 
         let bind_group = device.create_bind_group(&BindGroupDescriptor {
@@ -128,7 +128,7 @@ impl Light {
         let buffer = device.create_buffer_init(&util::BufferInitDescriptor {
             label: Some("ambient light buffer"),
             contents: bytemuck::cast_slice(&slice),
-            usage: BufferUsage::UNIFORM,
+            usage: BufferUsages::UNIFORM,
         });
 
         let bind_group = device.create_bind_group(&BindGroupDescriptor {

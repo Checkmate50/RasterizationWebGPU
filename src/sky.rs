@@ -1,6 +1,5 @@
 use wgpu::*;
 use wgpu::util::DeviceExt;
-use mint::Vector3;
 use glam::{Vec2, Vec3, Vec4};
 use core::ops::{Mul, Add};
 use std::f32::consts::PI;
@@ -127,12 +126,12 @@ impl Sky {
         let e = Vec3::new(p_y.v, px.v, py.v);
         let zenith = Vec3::new(y_z, xz, yz);
         let bytes = SkyBytes {
-            a: a.into(),
-            b: b.into(),
-            c: c.into(),
-            d: d.into(),
-            e: e.into(),
-            zenith: zenith.into(),
+            a,
+            b,
+            c,
+            d,
+            e,
+            zenith,
             theta_sun,
         };
 
@@ -140,7 +139,7 @@ impl Sky {
             entries: &[
                 BindGroupLayoutEntry {
                     binding: 0,
-                    visibility: ShaderStage::FRAGMENT,
+                    visibility: ShaderStages::FRAGMENT,
                     ty: BindingType::Buffer {
                         ty: BufferBindingType::Uniform,
                         has_dynamic_offset: false,
@@ -155,7 +154,7 @@ impl Sky {
         let buffer = device.create_buffer_init(&util::BufferInitDescriptor {
             label: Some("sky buffer"),
             contents: bytes.as_std140().as_bytes(),
-            usage: BufferUsage::UNIFORM,
+            usage: BufferUsages::UNIFORM,
         });
 
         let bind_group = device.create_bind_group(&BindGroupDescriptor {
@@ -179,12 +178,12 @@ impl Sky {
 
 #[derive(AsStd140)]
 struct SkyBytes {
-    a: Vector3<f32>,
-    b: Vector3<f32>,
-    c: Vector3<f32>,
-    d: Vector3<f32>,
-    e: Vector3<f32>,
-    zenith: Vector3<f32>,
+    a: Vec3,
+    b: Vec3,
+    c: Vec3,
+    d: Vec3,
+    e: Vec3,
+    zenith: Vec3,
     theta_sun: f32,
 }
 

@@ -22,7 +22,7 @@ impl Animation {
                 inputs.zip(outputs).collect::<BTreeMap<OrderedFloat<f32>, Transformation>>()
             }
             ReadOutputs::Rotations(rs) => {
-                let outputs = rs.into_f32().map(|r| Transformation::Rotate(Quat::from_slice_unaligned(&r)));
+                let outputs = rs.into_f32().map(|r| Transformation::Rotate(Quat::from_slice(&r)));
                 inputs.zip(outputs).collect::<BTreeMap<OrderedFloat<f32>, Transformation>>()
             }
             ReadOutputs::Scales(ss) => {

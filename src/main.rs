@@ -17,7 +17,7 @@ const HEIGHT: u32 = 900;
 
 fn main() -> Result<!> {
 
-    //env_logger::init(); // enable logging for vulkan validation layers
+    env_logger::init(); // enable logging for vulkan validation layers
 
     let file_path = if let Some(file_path) = std::env::args().nth(1) {
         file_path

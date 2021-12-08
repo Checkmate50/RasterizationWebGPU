@@ -6,7 +6,7 @@ use crate::sky::Sky;
 use crate::light::{LightJSON, Light};
 use crate::animation::{Animation, Transformation};
 use anyhow::Result;
-use glam::{Mat4, Vec3, Vec4};
+use glam::{Mat4, Vec3};
 use gltf::{Node, buffer::Data, Document};
 use std::f32::consts::PI;
 use std::path::Path;
@@ -32,7 +32,7 @@ impl Scene {
 
         let materials = source.materials().map(|m| {
             let a = m.pbr_metallic_roughness();
-            Material::new(a.roughness_factor(), 1.0, 1.5, Vec4::from(a.base_color_factor()).into()).to_buffer(device)
+            Material::new(a.roughness_factor(), 1.0, 1.5, Vec3::from_slice(&a.base_color_factor())).to_buffer(device)
         }).collect();
 
         let animations = source.animations().map(|a| {

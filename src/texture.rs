@@ -1,5 +1,4 @@
 use wgpu::*;
-use wgpu::util::DeviceExt;
 use core::num::NonZeroU32;
 
 pub struct Texture {
@@ -22,7 +21,7 @@ impl Texture {
             sample_count: 1,
             dimension: TextureDimension::D2,
             format,
-            usage: TextureUsage::RENDER_ATTACHMENT | TextureUsage::SAMPLED,
+            usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING,
             label: Some("texture"),
         });
 
@@ -38,12 +37,6 @@ impl Texture {
             ..Default::default()
         });
 
-        let dim_buffer = device.create_buffer_init(&util::BufferInitDescriptor {
-            label: Some("texture dimensions"),
-            contents: bytemuck::cast_slice(&[width as f32, height as f32]),
-            usage: BufferUsage::UNIFORM | BufferUsage::COPY_DST,
-        });
-
         let bind_group = device.create_bind_group(&BindGroupDescriptor {
             layout: layout,
             entries: &[
@@ -54,10 +47,6 @@ impl Texture {
                 BindGroupEntry {
                     binding: 1,
                     resource: BindingResource::Sampler(&sampler),
-                },
-                BindGroupEntry {
-                    binding: 2,
-                    resource: dim_buffer.as_entire_binding(),
                 }
             ],
             label: Some(&format!("{:?}", format)),
@@ -79,7 +68,7 @@ pub struct MipTexture {
 
 impl MipTexture {
     pub fn new(device: &Device, layout: &BindGroupLayout, width: u32, height: u32, mip_level_count: u32) -> Self {
-        let format = TextureFormat::Rgba32Float;
+        let format = TextureFormat::Rgba16Float;
 
         let texture = device.create_texture(&TextureDescriptor {
             size: Extent3d {
@@ -91,7 +80,7 @@ impl MipTexture {
             format,
             sample_count: 1,
             dimension: TextureDimension::D2,
-            usage: TextureUsage::RENDER_ATTACHMENT | TextureUsage::SAMPLED,
+            usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING,
             label: Some("mip texture"),
         });
 
@@ -119,11 +108,6 @@ impl MipTexture {
 
 
         let bind_groups = (0..mip_level_count).map(|i| {
-            let dim_buffer = device.create_buffer_init(&util::BufferInitDescriptor {
-                label: Some("mip dim buffer"),
-                contents: bytemuck::cast_slice(&[(width >> i) as f32, (height >> i) as f32]),
-                usage: BufferUsage::UNIFORM,
-            });
             device.create_bind_group(&BindGroupDescriptor {
                 layout: layout,
                 entries: &[
@@ -135,10 +119,6 @@ impl MipTexture {
                         binding: 1,
                         resource: BindingResource::Sampler(&sampler),
                     },
-                    BindGroupEntry {
-                        binding: 2,
-                        resource: dim_buffer.as_entire_binding(),
-                    }
                 ],
                 label: Some(&format!("{:?} mip", format)),
             })

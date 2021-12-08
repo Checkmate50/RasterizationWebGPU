@@ -34,9 +34,6 @@ var texture: texture_2d<f32>;
 [[group(0), binding(1)]]
 var sampler: sampler;
 
-[[group(0), binding(2)]]
-var window: Window;
-
 [[block]]
 struct Blur {
     dir: vec2<f32>;
@@ -45,7 +42,7 @@ struct Blur {
 };
 
 [[group(1), binding(0)]]
-var blur: Blur;
+var<uniform> blur: Blur;
 
 fn gaussianWeight(r: f32) -> f32 {
     return exp(-r*r/(2.0*blur.stdev*blur.stdev)) * INV_SQRT_TWOPI / blur.stdev;
@@ -53,7 +50,7 @@ fn gaussianWeight(r: f32) -> f32 {
 
 [[stage(fragment)]]
 fn fs_main(in: VertexOutput) -> [[location(0)]] vec4<f32> {
-    let inc = vec2<f32>(1.0, 1.0) / vec2<f32>(window.size);
+    let inc = vec2<f32>(1.0, 1.0) / vec2<f32>(textureDimensions(texture));
     var s: vec3<f32> = vec3<f32>(0.0, 0.0, 0.0);
     var i: i32 = -blur.radius;
     loop {

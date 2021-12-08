@@ -11,7 +11,7 @@ use std::path::Path;
 
 pub struct Context {
     device: Device,
-    swap_chain: SwapChain,
+    surface: Surface,
     geometry_pipeline: RenderPipeline,
     shading_pipeline: RenderPipeline,
     post_pipeline: RenderPipeline,
@@ -38,39 +38,39 @@ impl Context {
         let height = window.inner_size().height;
 
         // some initial state
-        let (device, queue, swap_chain, format) = {
+        let (device, surface, format, queue) = {
 
             // create device, queue
-            let instance = Instance::new(BackendBit::PRIMARY);
+            let instance = Instance::new(Backends::PRIMARY);
             let surface = unsafe { instance.create_surface(window) };
             let adapter = instance.request_adapter(
                 &RequestAdapterOptionsBase {
                     power_preference: PowerPreference::default(),
                     compatible_surface: Some(&surface),
+                    force_fallback_adapter: false,
                 }
             ).await.ok_or(anyhow!("Couldn't get adapter"))?;
             let (device, queue) = adapter.request_device(
                 &DeviceDescriptor{
                     limits: wgpu::Limits {
-                        max_bind_groups: 8, // set max number of bind groups to 6 as it defaults to 4
+                        max_bind_groups: 8, // set max number of bind groups to 8 as it defaults to 4
                         ..Default::default()
                     },
                     ..Default::default()
                 },
-                Some(&std::path::Path::new("path"))
+                None,
                 ).await?;
-            let format = adapter.get_swap_chain_preferred_format(&surface).ok_or(anyhow!("Incompatible surface!"))?;
+            let format = surface.get_preferred_format(&adapter).ok_or(anyhow!("Incompatible surface!"))?;
 
-            // create swap chain
-            let swap_chain = device.create_swap_chain(&surface, &SwapChainDescriptor {
-                usage: TextureUsage::RENDER_ATTACHMENT,
+            surface.configure(&device, &SurfaceConfiguration {
+                usage: TextureUsages::RENDER_ATTACHMENT,
                 format,
                 width,
                 height,
                 present_mode: PresentMode::Fifo,
             });
 
-            (device, queue, swap_chain, format)
+            (device, surface, format, queue)
         };
 
         // create required layouts
@@ -79,7 +79,7 @@ impl Context {
                 entries: &[
                     BindGroupLayoutEntry {
                         binding: 0,
-                        visibility: ShaderStage::VERTEX,
+                        visibility: ShaderStages::VERTEX,
                         ty: BindingType::Buffer {
                             ty: BufferBindingType::Uniform,
                             has_dynamic_offset: false,
@@ -89,7 +89,7 @@ impl Context {
                     },
                     BindGroupLayoutEntry {
                         binding: 1,
-                        visibility: ShaderStage::FRAGMENT,
+                        visibility: ShaderStages::FRAGMENT,
                         ty: BindingType::Buffer {
                             ty: BufferBindingType::Uniform,
                             has_dynamic_offset: false,
@@ -99,7 +99,7 @@ impl Context {
                     },
                     BindGroupLayoutEntry {
                         binding: 2,
-                        visibility: ShaderStage::VERTEX,
+                        visibility: ShaderStages::VERTEX,
                         ty: BindingType::Buffer {
                             ty: BufferBindingType::Storage { read_only: true },
                             has_dynamic_offset: false,
@@ -115,7 +115,7 @@ impl Context {
                 entries: &[
                     BindGroupLayoutEntry {
                         binding: 0,
-                        visibility: ShaderStage::VERTEX | ShaderStage::FRAGMENT,
+                        visibility: ShaderStages::VERTEX | ShaderStages::FRAGMENT,
                         ty: BindingType::Buffer {
                             ty: BufferBindingType::Uniform,
                             has_dynamic_offset: false,
@@ -131,9 +131,9 @@ impl Context {
                 entries: &[
                     BindGroupLayoutEntry {
                         binding: 0,
-                        visibility: ShaderStage::FRAGMENT,
+                        visibility: ShaderStages::FRAGMENT,
                         ty: BindingType::Texture {
-                            sample_type: TextureSampleType::Float { filterable: false },
+                            sample_type: TextureSampleType::Float { filterable: true },
                             view_dimension: TextureViewDimension::D2,
                             multisampled: false,
                         },
@@ -141,20 +141,10 @@ impl Context {
                     },
                     BindGroupLayoutEntry {
                         binding: 1,
-                        visibility: ShaderStage::FRAGMENT,
+                        visibility: ShaderStages::FRAGMENT,
                         ty: BindingType::Sampler {
                             filtering: true,
                             comparison: false,
-                        },
-                        count: None,
-                    },
-                    BindGroupLayoutEntry {
-                        binding: 2,
-                        visibility: ShaderStage::FRAGMENT,
-                        ty: BindingType::Buffer {
-                            ty: BufferBindingType::Uniform,
-                            has_dynamic_offset: false,
-                            min_binding_size: None,
                         },
                         count: None,
                     }
@@ -166,7 +156,7 @@ impl Context {
                 entries: &[
                     BindGroupLayoutEntry {
                         binding: 0,
-                        visibility: ShaderStage::FRAGMENT,
+                        visibility: ShaderStages::FRAGMENT,
                         ty: BindingType::Texture {
                             sample_type: TextureSampleType::Depth,
                             view_dimension: TextureViewDimension::D2,
@@ -176,20 +166,10 @@ impl Context {
                     },
                     BindGroupLayoutEntry {
                         binding: 1,
-                        visibility: ShaderStage::FRAGMENT,
+                        visibility: ShaderStages::FRAGMENT,
                         ty: BindingType::Sampler {
                             filtering: true,
                             comparison: false,
-                        },
-                        count: None,
-                    },
-                    BindGroupLayoutEntry {
-                        binding: 2,
-                        visibility: ShaderStage::FRAGMENT,
-                        ty: BindingType::Buffer {
-                            ty: BufferBindingType::Uniform,
-                            has_dynamic_offset: false,
-                            min_binding_size: None,
                         },
                         count: None,
                     }
@@ -201,7 +181,7 @@ impl Context {
                 entries: &[
                     BindGroupLayoutEntry {
                         binding: 0,
-                        visibility: ShaderStage::FRAGMENT,
+                        visibility: ShaderStages::FRAGMENT,
                         ty: BindingType::Texture {
                             sample_type: TextureSampleType::Depth,
                             view_dimension: TextureViewDimension::D2,
@@ -211,23 +191,13 @@ impl Context {
                     },
                     BindGroupLayoutEntry {
                         binding: 1,
-                        visibility: ShaderStage::FRAGMENT,
+                        visibility: ShaderStages::FRAGMENT,
                         ty: BindingType::Sampler {
                             filtering: true,
                             comparison: true,
                         },
                         count: None,
                     },
-                    BindGroupLayoutEntry {
-                        binding: 2,
-                        visibility: ShaderStage::FRAGMENT,
-                        ty: BindingType::Buffer {
-                            ty: BufferBindingType::Uniform,
-                            has_dynamic_offset: false,
-                            min_binding_size: None,
-                        },
-                        count: None,
-                    }
                 ],
                 label: Some("depth layout comparison"),
             });
@@ -245,8 +215,8 @@ impl Context {
 
         // create required textures
         let diffuse_texture = Texture::create_window_texture(&device, &texture_layout, TextureFormat::Rgb10a2Unorm, None, width, height);
-        let material_texture = Texture::create_window_texture(&device, &texture_layout, TextureFormat::Rgba32Float, None, width, height);
-        let normal_texture = Texture::create_window_texture(&device, &texture_layout, TextureFormat::Rgba32Float, None, width, height);
+        let material_texture = Texture::create_window_texture(&device, &texture_layout, TextureFormat::Rgba16Float, None, width, height);
+        let normal_texture = Texture::create_window_texture(&device, &texture_layout, TextureFormat::Rgba16Float, None, width, height);
         let depth_texture = Texture::create_window_texture(&device, &depth_layout, TextureFormat::Depth32Float, None, width, height);
 
         // set up geometry pipeline
@@ -265,7 +235,6 @@ impl Context {
                 device.create_shader_module(&ShaderModuleDescriptor {
                     label: Some("geometry module"),
                     source: ShaderSource::Wgsl(Cow::Borrowed(&shader_str)),
-                    flags: ShaderFlags::VALIDATION,
                 })
             };
 
@@ -316,7 +285,6 @@ impl Context {
                 device.create_shader_module(&ShaderModuleDescriptor {
                     label: Some("shadow module"),
                     source: ShaderSource::Wgsl(Cow::Borrowed(&shader_str)),
-                    flags: ShaderFlags::VALIDATION,
                 })
             };
 
@@ -373,7 +341,6 @@ impl Context {
                 device.create_shader_module(&ShaderModuleDescriptor {
                     label: Some("ambient module"),
                     source: ShaderSource::Wgsl(Cow::Borrowed(&shader_str)),
-                    flags: ShaderFlags::VALIDATION,
                 })
             };
 
@@ -393,7 +360,7 @@ impl Context {
                                 color: blend_component.clone(),
                                 alpha: blend_component.clone(),
                             }),
-                            write_mask: ColorWrite::default(),
+                            write_mask: ColorWrites::default(),
                         },
                     ],
                 }),
@@ -426,7 +393,6 @@ impl Context {
                 device.create_shader_module(&ShaderModuleDescriptor {
                     label: Some("shading module"),
                     source: ShaderSource::Wgsl(Cow::Borrowed(&shader_str)),
-                    flags: ShaderFlags::VALIDATION,
                 })
             };
 
@@ -446,7 +412,7 @@ impl Context {
                                 color: blend_component.clone(),
                                 alpha: blend_component,
                             }),
-                            write_mask: ColorWrite::default(),
+                            write_mask: ColorWrites::default(),
                         },
                     ],
                 }),
@@ -482,7 +448,6 @@ impl Context {
                 device.create_shader_module(&ShaderModuleDescriptor {
                     label: Some("blur module"),
                     source: ShaderSource::Wgsl(Cow::Borrowed(&shader_str)),
-                    flags: ShaderFlags::VALIDATION,
                 })
             };
 
@@ -526,7 +491,6 @@ impl Context {
                 device.create_shader_module(&ShaderModuleDescriptor {
                     label: Some("post module"),
                     source: ShaderSource::Wgsl(Cow::Borrowed(&shader_str)),
-                    flags: ShaderFlags::VALIDATION,
                 })
             };
 
@@ -566,7 +530,6 @@ impl Context {
                 device.create_shader_module(&ShaderModuleDescriptor {
                     label: Some("post module"),
                     source: ShaderSource::Wgsl(Cow::Borrowed(&shader_str)),
-                    flags: ShaderFlags::VALIDATION,
                 })
             };
 
@@ -591,8 +554,8 @@ impl Context {
 
         Ok(Self {
             device,
+            surface,
             queue,
-            swap_chain,
             geometry_pipeline,
             shading_pipeline,
             shadow_pipeline,
@@ -614,7 +577,8 @@ impl Context {
 
     pub fn render(&self, elapsed_time: f32) -> Result<()> {
         self.scene.animate(elapsed_time, &self.queue);
-        let frame = self.swap_chain.get_current_frame()?.output;
+        let frame = self.surface.get_current_texture()?;
+        let window_view = frame.texture.create_view(&TextureViewDescriptor::default());
 
         let mut encoder = self.device.create_command_encoder(&CommandEncoderDescriptor::default());
 
@@ -802,7 +766,7 @@ impl Context {
                 color_attachments: &[
                     RenderPassColorAttachment {
                         resolve_target: None,
-                        view: &frame.view,
+                        view: &window_view,
                         ops: Operations {
                             load: LoadOp::Clear(Color::BLACK),
                             store: true,
@@ -820,6 +784,7 @@ impl Context {
         }
 
         self.queue.submit(Some(encoder.finish()));
+        frame.present();
 
         Ok(())
     }

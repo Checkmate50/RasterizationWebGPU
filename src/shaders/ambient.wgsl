@@ -30,7 +30,7 @@ struct Light {
 };
 
 [[group(0), binding(0)]]
-var light: Light;
+var<uniform> light: Light;
 
 [[block]]
 struct Camera {
@@ -46,10 +46,10 @@ struct InvCamera {
 };
 
 [[group(1), binding(0)]]
-var camera: Camera;
+var<uniform> camera: Camera;
 
 [[group(1), binding(1)]]
-var inv_camera: InvCamera;
+var<uniform> inv_camera: InvCamera;
 
 [[group(2), binding(0)]]
 var diffuse_texture: texture_2d<f32>;
@@ -84,7 +84,7 @@ let sun_angular_radius: f32 = 0.00872664625;
 let phi_sun: f32 = PI;
 
 [[group(5), binding(0)]]
-var sky: Sky;
+var<uniform> sky: Sky;
 
 fn random(co: vec2<f32>) -> f32 {
     return fract(sin(dot(co.xy,vec2<f32>(12.9898,78.233))) * 43758.5453);
@@ -128,10 +128,10 @@ fn square_to_uniform_disk_concentric(sample: vec2<f32>) -> vec2<f32> {
         phi = 0.0;
     } elseif (r1*r1 > r2*r2) {
         r = r1;
-        phi = (PI/4.0f) * (r2/r1);
+        phi = (PI/4.0) * (r2/r1);
     } else {
         r = r2;
-        phi = (PI/2.0f) - (r1/r2) * (PI/4.0f);
+        phi = (PI/2.0) - (r1/r2) * (PI/4.0);
     }
 
     let sin_phi = sin(phi);

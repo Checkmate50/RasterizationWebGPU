@@ -32,7 +32,7 @@ struct Light {
 };
 
 [[group(0), binding(0)]]
-var light: Light;
+var<uniform> light: Light;
 
 [[block]]
 struct Camera_Pos {
@@ -42,7 +42,7 @@ struct Camera_Pos {
 };
 
 [[group(1), binding(1)]]
-var camera: Camera_Pos;
+var<uniform> camera: Camera_Pos;
 
 [[group(2), binding(0)]]
 var diffuse_texture: texture_2d<f32>;

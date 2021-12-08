@@ -52,14 +52,14 @@ impl Mesh {
         let vertices = device.create_buffer_init(&util::BufferInitDescriptor {
             label: Some("vertices buffer"),
             contents: bytemuck::cast_slice(&raw_vertices),
-            usage: BufferUsage::VERTEX,
+            usage: BufferUsages::VERTEX,
         });
 
         let length = indices_buf.len() as u32;
         let indices = device.create_buffer_init(&util::BufferInitDescriptor {
             label: Some("indices buffer"),
             contents: bytemuck::cast_slice(&indices_buf),
-            usage: BufferUsage::INDEX,
+            usage: BufferUsages::INDEX,
         });
 
         let matrix = RefCell::new(matrix);
@@ -97,13 +97,13 @@ impl Mesh {
         let transform_buffer = device.create_buffer_init(&util::BufferInitDescriptor {
             label: Some("mesh transform buffer"),
             contents: bytemuck::cast_slice(&[matrix, normal_mat]),
-            usage: BufferUsage::UNIFORM | BufferUsage::COPY_DST,
+            usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
         });
 
         let joint_matrices_buffer = device.create_buffer_init(&util::BufferInitDescriptor {
             label: Some("joint matrices buffer"),
             contents: bytemuck::cast_slice(&joint_matrices),
-            usage: BufferUsage::STORAGE | BufferUsage::COPY_DST,
+            usage: BufferUsages::STORAGE | BufferUsages::COPY_DST,
         });
 
         self.bind_group = Some(device.create_bind_group(&BindGroupDescriptor {
@@ -131,7 +131,7 @@ impl Mesh {
     pub fn get_vertex_desc(&self) -> VertexBufferLayout {
         VertexBufferLayout {
             array_stride: std::mem::size_of::<Vertex>() as BufferAddress,
-            step_mode: InputStepMode::default(),
+            step_mode: VertexStepMode::default(),
             attributes: &[
                 VertexAttribute { // positions
                     format: VertexFormat::Float32x3,

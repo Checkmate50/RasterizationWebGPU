@@ -10,7 +10,7 @@ struct Camera {
 };
 
 [[group(0), binding(0)]]
-var cam_mats: Camera;
+var<uniform> cam_mats: Camera;
 
 [[block]]
 struct Model {
@@ -19,7 +19,7 @@ struct Model {
 };
 
 [[group(1), binding(0)]]
-var model_mats: Model;
+var<uniform> model_mats: Model;
 
 [[block]]
 struct MatArray {
@@ -27,7 +27,7 @@ struct MatArray {
 };
 
 [[group(1), binding(2)]]
-var joint_mats: [[access(read)]] MatArray;
+var<storage, read> joint_mats: MatArray;
 
 fn add_mats(m0: mat4x4<f32>, m1: mat4x4<f32>) -> mat4x4<f32> {
     return mat4x4<f32>(m0.x + m1.x, m0.y + m1.y, m0.z + m1.z, m0.w + m1.w);
@@ -80,7 +80,7 @@ struct Material {
 };
 
 [[group(1), binding(1)]]
-var material: Material;
+var<uniform> material: Material;
 
 [[stage(fragment)]]
 fn fs_main(
