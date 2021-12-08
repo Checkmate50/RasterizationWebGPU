@@ -3,8 +3,7 @@
 use winit::{
     event_loop::{EventLoop, ControlFlow},
     event::{Event, WindowEvent, ElementState, DeviceEvent, VirtualKeyCode, KeyboardInput},
-    window::WindowBuilder,
-    dpi::LogicalSize,
+    window::Window,
 };
 use anyhow::Result;
 use futures::executor::block_on;
@@ -12,11 +11,9 @@ use rasterization::context::Context;
 use glam::{Vec3, Mat3};
 use std::time::{Instant, Duration};
 
-const WIDTH: u32 = 1200;
-const HEIGHT: u32 = 900;
-
 fn main() -> Result<!> {
 
+    #[cfg(debug_assertions)]
     env_logger::init(); // enable logging for vulkan validation layers
 
     let file_path = if let Some(file_path) = std::env::args().nth(1) {
@@ -27,8 +24,7 @@ fn main() -> Result<!> {
     };
 
     let event_loop = EventLoop::new();
-    let size = LogicalSize::new(WIDTH as f64, HEIGHT as f64);
-    let window = WindowBuilder::new().with_inner_size(size).build(&event_loop)?;
+    let window = Window::new(&event_loop)?;
     let mut state = block_on(Context::new(&window, file_path))?;
     let mut clicking = false;
     let mut x_accel = 0.0;
