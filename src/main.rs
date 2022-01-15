@@ -33,7 +33,20 @@ fn main() -> Result<!> {
     let mut start_time = Instant::now();
     let mut pause_time: Option<Instant> = None;
     let mut elapsed = 0.0;
+    let mut previous_time = Instant::now();
+    let mut frame_count = 0;
     event_loop.run(move |event, _, control_flow| {
+        
+        let current_time = Instant::now();
+
+        if current_time - previous_time >= Duration::new(1, 0) {
+            println!("Current SPF: {}", 1.0/(frame_count as f32));
+            previous_time = Instant::now();
+            frame_count = 0;
+        }
+
+        frame_count += 1;
+
         if pause_time == None {
             let now = Instant::now();
             if let Some(duration) = now.checked_duration_since(start_time) {
