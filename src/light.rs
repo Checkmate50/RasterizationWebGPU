@@ -69,12 +69,12 @@ impl LightJSON {
 }
 
 pub enum Light {
-    Point { bind_group: BindGroup, texture: Texture },
+    Point { texture: Texture, buffer: Buffer },
     Ambient { bind_group: BindGroup },
 }
 
 impl Light {
-    pub fn new_point(position: Vec3, power: Vec3, device: &Device, layout: &BindGroupLayout, texture_layout: &BindGroupLayout) -> Self {
+    pub fn new_point(position: Vec3, power: Vec3, device: &Device, _layout: &BindGroupLayout, texture_layout: &BindGroupLayout) -> Self {
         let view_mat = Mat4::look_at_rh(position, Vec3::new(0.0, 0.0, 0.0), Vec3::new(0.0, 1.0, 0.0));
         let proj_mat = Mat4::perspective_rh(1.0, 1.0, 1.0, 50.0);
 
@@ -97,22 +97,21 @@ impl Light {
             usage: BufferUsages::UNIFORM,
         });
 
-        let bind_group = device.create_bind_group(&BindGroupDescriptor {
-            layout: layout,
-            entries: &[
-                BindGroupEntry {
-                    binding: 0,
-                    resource: buffer.as_entire_binding(),
-                }
-            ],
-            label: Some("light bind group"),
-        });
+        // let bind_group = device.create_bind_group(&BindGroupDescriptor {
+        //     layout: layout,
+        //     entries: &[
+        //         BindGroupEntry {
+        //             binding: 0,
+        //             resource: buffer.as_entire_binding(),
+        //         }
+        //     ],
+        //     label: Some("light bind group"),
+        // });
 
         let texture = Texture::create_window_texture(&device, &texture_layout, TextureFormat::Depth32Float, Some(CompareFunction::LessEqual), 1024, 1024);
-
         Self::Point {
-            bind_group,
             texture,
+            buffer
         }
     }
 

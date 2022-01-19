@@ -11,6 +11,7 @@ use std::path::Path;
 
 pub struct Context {
     device: Device,
+    light_layout: BindGroupLayout,
     surface: Surface,
     geometry_pipeline: RenderPipeline,
     shading_pipeline: RenderPipeline,
@@ -203,7 +204,6 @@ impl Context {
             });
             (object_layout, light_layout, texture_layout, depth_layout, depth_layout_comparison)
         };
-
         // load mesh
         let scene = Scene::from_gltf(&device, &object_layout, &light_layout, &depth_layout_comparison, file_path)?;
 
@@ -554,6 +554,7 @@ impl Context {
 
         Ok(Self {
             device,
+            light_layout,
             surface,
             queue,
             geometry_pipeline,
@@ -581,6 +582,7 @@ impl Context {
         let window_view = frame.texture.create_view(&TextureViewDescriptor::default());
 
         let mut encoder = self.device.create_command_encoder(&CommandEncoderDescriptor::default());
+        let mut bind_group: Vec<BindGroup> = vec![];
 
         // geometry pass
         {
@@ -635,7 +637,7 @@ impl Context {
         // shadow passes
         for light in &self.scene.lights {
             match light {
-                Light::Point { texture, bind_group } => {
+                Light::Point { texture, buffer } => {
                     let mut render_pass = encoder.begin_render_pass(&RenderPassDescriptor {
                         label: Some("shadow pass"),
                         depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
@@ -649,8 +651,18 @@ impl Context {
                         color_attachments: &[],
                     });
 
+                    bind_group.push(self.device.create_bind_group(&BindGroupDescriptor {
+                        layout: &self.light_layout,
+                        entries: &[
+                            BindGroupEntry {
+                                binding: 0,
+                                resource: buffer.as_entire_binding(),
+                            }
+                        ],
+                        label: Some("light bind group"),
+                    }));
                     render_pass.set_pipeline(&self.shadow_pipeline);
-                    render_pass.set_bind_group(0, &bind_group, &[]);
+                    render_pass.set_bind_group(0, &bind_group.last().unwrap(), &[]);
                     for mesh in &self.scene.meshes {
                         render_pass.set_bind_group(1, &mesh.bind_group.as_ref().expect("Unbound mesh!"), &[]);
                         render_pass.set_vertex_buffer(0, mesh.vertices.slice(..));
@@ -678,7 +690,24 @@ impl Context {
                     }
                 ],
             });
-
+            let mut index = bind_group.len();
+            for light in &self.scene.lights {
+                match light {
+                    Light::Point { texture : _texture, buffer } => {
+                        bind_group.push(self.device.create_bind_group(&BindGroupDescriptor {
+                            layout: &self.light_layout,
+                            entries: &[
+                                BindGroupEntry {
+                                    binding: 0,
+                                    resource: buffer.as_entire_binding(),
+                                }
+                            ],
+                            label: Some("light bind group"),
+                        }));
+                    },
+                    Light::Ambient { .. } => {},
+                }
+            }
             render_pass.set_pipeline(&self.shading_pipeline);
             render_pass.set_bind_group(1, &self.scene.camera.bind_group, &[]);
             render_pass.set_bind_group(2, &self.diffuse_texture.bind_group, &[]);
@@ -687,10 +716,11 @@ impl Context {
             render_pass.set_bind_group(5, &self.material_texture.bind_group, &[]);
             for light in &self.scene.lights {
                 match light {
-                    Light::Point { texture, bind_group } => {
+                    Light::Point { texture, buffer : _buffer } => {
                         render_pass.set_bind_group(6, &texture.bind_group, &[]);
-                        render_pass.set_bind_group(0, &bind_group, &[]);
+                        render_pass.set_bind_group(0, &bind_group[index], &[]);
                         render_pass.draw(0..3, 0..1);
+                        index += 1;
                     },
                     Light::Ambient { .. } => {},
                 }
