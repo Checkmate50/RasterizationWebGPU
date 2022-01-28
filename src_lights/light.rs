@@ -70,7 +70,7 @@ impl LightJSON {
 
 pub enum Light {
     Point { texture: Texture, buffer: Buffer },
-    Ambient { bind_group: BindGroup },
+    Ambient { buffer: Buffer },
 }
 
 impl Light {
@@ -104,7 +104,7 @@ impl Light {
         }
     }
 
-    pub fn new_ambient(radiance: Vec3, range: Option<f32>, device: &Device, layout: &BindGroupLayout) -> Self {
+    pub fn new_ambient(radiance: Vec3, range: Option<f32>, device: &Device, _layout: &BindGroupLayout) -> Self {
 
         let slice = [
             radiance.x,
@@ -119,19 +119,8 @@ impl Light {
             usage: BufferUsages::UNIFORM,
         });
 
-        let bind_group = device.create_bind_group(&BindGroupDescriptor {
-            layout: layout,
-            entries: &[
-                BindGroupEntry {
-                    binding: 0,
-                    resource: buffer.as_entire_binding(),
-                }
-            ],
-            label: Some("ambient light label"),
-        });
-
         Self::Ambient {
-            bind_group,
+            buffer,
         }
     }
 }

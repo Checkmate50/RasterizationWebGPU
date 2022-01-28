@@ -583,6 +583,7 @@ impl Context {
 
         let mut encoder = self.device.create_command_encoder(&CommandEncoderDescriptor::default());
         let mut bind_groups: Vec<BindGroup> = vec![];
+        let mut bind_groups_ambient: Vec<BindGroup> = vec![];
 
         // geometry pass
         {
@@ -726,13 +727,31 @@ impl Context {
                     Light::Ambient { .. } => {},
                 }
             }
+            let mut index = bind_groups_ambient.len();
+            for light in &self.scene.lights {
+                match light {
+                    Light::Point { .. } => {},
+                    Light::Ambient { buffer } => {
+                    bind_groups_ambient.push(self.device.create_bind_group(&BindGroupDescriptor {
+                        layout: &self.light_layout,
+                        entries: &[
+                            BindGroupEntry {
+                                binding: 0,
+                                resource: buffer.as_entire_binding(),
+                            }
+                        ],
+                        label: Some("ambient light label"),
+                    }));},
+                }
+            }
             render_pass.set_pipeline(&self.ambient_pipeline);
             render_pass.set_bind_group(5, &self.scene.sky.bind_group, &[]);
             for light in &self.scene.lights {
                 match light {
-                    Light::Ambient { bind_group } => {
-                        render_pass.set_bind_group(0, &bind_group, &[]);
+                    Light::Ambient { buffer : _buffer } => {
+                        render_pass.set_bind_group(0, &bind_groups_ambient[index], &[]);
                         render_pass.draw(0..3, 0..1);
+                        index += 1;
                     },
                     Light::Point { .. } => {},
                 }
