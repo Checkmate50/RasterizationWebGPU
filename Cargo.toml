@@ -20,3 +20,10 @@ ordered-float = "2.8"
 env_logger = "0.9"
 wgpu = "0.11"
 
+[[bin]]
+name = "clean"
+path = "src_clean/main.rs"
+
+[[bin]]
+name = "first"
+path = "src_first/main.rs"

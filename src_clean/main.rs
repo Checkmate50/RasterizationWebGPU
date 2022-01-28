@@ -1,4 +1,16 @@
 #![feature(never_type)]
+#![feature(map_first_last)]
+
+mod context;
+mod scene;
+mod light;
+mod blur;
+mod texture;
+mod mesh;
+mod camera;
+mod material;
+mod sky;
+mod animation;
 
 use winit::{
     event_loop::{EventLoop, ControlFlow},
@@ -7,7 +19,7 @@ use winit::{
 };
 use anyhow::Result;
 use futures::executor::block_on;
-use rasterization::context::Context;
+use context::Context;
 use glam::{Vec3, Mat3};
 use std::time::{Instant, Duration};
 
@@ -40,7 +52,7 @@ fn main() -> Result<!> {
         let current_time = Instant::now();
 
         if current_time - previous_time >= Duration::new(1, 0) {
-            println!("Current FPS: {}", frame_count);
+            println!("Current clean FPS: {}", frame_count);
             previous_time = Instant::now();
             frame_count = 0;
         }
