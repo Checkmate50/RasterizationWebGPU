@@ -25,9 +25,5 @@ name = "clean"
 path = "src_clean/main.rs"
 
 [[bin]]
-name = "first"
-path = "src_first/main.rs"
-
-[[bin]]
 name = "lights"
 path = "src_lights/main.rs"
