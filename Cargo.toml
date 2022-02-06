@@ -27,3 +27,7 @@ path = "src_clean/main.rs"
 [[bin]]
 name = "lights"
 path = "src_lights/main.rs"
+
+[[bin]]
+name = "lights2"
+path = "src_lights/main.rs"
