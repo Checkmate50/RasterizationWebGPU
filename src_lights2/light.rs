@@ -1,7 +1,6 @@
 use wgpu::*;
-use wgpu::util::DeviceExt;
 use serde::{Serialize, Deserialize};
-use glam::{Vec3, Vec2, Mat4};
+use glam::{Vec4, Vec3, Vec2, Mat4};
 use crate::texture::Texture;
 use std::path::Path;
 use anyhow::Result;
@@ -34,10 +33,6 @@ pub enum LightJSON {
 }
 
 impl LightJSON {
-    pub fn from_bytes(bytes: &[u8]) -> Result<Vec<Self>> {
-        Ok(serde_json::from_slice(&bytes)?) // kinda weird
-    }
-
     pub fn from_file(filename: impl AsRef<Path>) -> Result<Vec<Self>> {
         let json_str = std::fs::read_to_string(filename)?;
         Ok(serde_json::from_str(&json_str)?)
@@ -69,8 +64,8 @@ impl LightJSON {
 }
 
 pub enum Light {
-    Point { texture: Texture, slice: [auto] },
-    Ambient { buffer: Buffer },
+    Point { texture: Texture, slice: [Vec4; 10] },
+    Ambient { slice: [f32; 4] },
 }
 
 impl Light {
@@ -98,7 +93,7 @@ impl Light {
         }
     }
 
-    pub fn new_ambient(radiance: Vec3, range: Option<f32>, device: &Device, _layout: &BindGroupLayout) -> Self {
+    pub fn new_ambient(radiance: Vec3, range: Option<f32>, _device: &Device, _layout: &BindGroupLayout) -> Self {
 
         let slice = [
             radiance.x,
@@ -107,14 +102,8 @@ impl Light {
             range.unwrap_or(0.0),
         ];
 
-        let buffer = device.create_buffer_init(&util::BufferInitDescriptor {
-            label: Some("ambient light buffer"),
-            contents: bytemuck::cast_slice(&slice),
-            usage: BufferUsages::UNIFORM,
-        });
-
         Self::Ambient {
-            buffer,
+            slice,
         }
     }
 }

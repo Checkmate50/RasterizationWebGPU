@@ -30,4 +30,4 @@ path = "src_lights/main.rs"
 
 [[bin]]
 name = "lights2"
-path = "src_lights/main.rs"
+path = "src_lights2/main.rs"

@@ -1,4 +1,5 @@
 use wgpu::*;
+use wgpu::util::DeviceExt;
 use anyhow::{Result, anyhow};
 use winit::window::Window;
 use crate::scene::Scene;
@@ -638,7 +639,7 @@ impl Context {
         // shadow passes
         for light in &self.scene.lights {
             match light {
-                Light::Point { texture, buffer } => {
+                Light::Point { texture, slice } => {
                     let mut render_pass = encoder.begin_render_pass(&RenderPassDescriptor {
                         label: Some("shadow pass"),
                         depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
@@ -652,6 +653,11 @@ impl Context {
                         color_attachments: &[],
                     });
 
+                    let buffer = self.device.create_buffer_init(&util::BufferInitDescriptor {
+                        label: Some("light buffer"),
+                        contents: bytemuck::cast_slice(slice),
+                        usage: BufferUsages::UNIFORM,
+                    });
                     bind_groups.push(self.device.create_bind_group(&BindGroupDescriptor {
                         layout: &self.light_layout,
                         entries: &[
@@ -694,7 +700,12 @@ impl Context {
             let mut index = bind_groups.len();
             for light in &self.scene.lights {
                 match light {
-                    Light::Point { texture : _texture, buffer } => {
+                    Light::Point { texture : _texture, slice } => {
+                        let buffer = self.device.create_buffer_init(&util::BufferInitDescriptor {
+                            label: Some("light buffer"),
+                            contents: bytemuck::cast_slice(slice),
+                            usage: BufferUsages::UNIFORM,
+                        });
                         bind_groups.push(self.device.create_bind_group(&BindGroupDescriptor {
                             layout: &self.light_layout,
                             entries: &[
@@ -717,7 +728,7 @@ impl Context {
             render_pass.set_bind_group(5, &self.material_texture.bind_group, &[]);
             for light in &self.scene.lights {
                 match light {
-                    Light::Point { texture, buffer : _buffer } => {
+                    Light::Point { texture, slice : _buffer } => {
                         render_pass.set_bind_group(6, &texture.bind_group, &[]);
                         // see above code for bind group declaration (to make the compiler happy with vectors)
                         render_pass.set_bind_group(0, &bind_groups[index], &[]);
@@ -731,7 +742,12 @@ impl Context {
             for light in &self.scene.lights {
                 match light {
                     Light::Point { .. } => {},
-                    Light::Ambient { buffer } => {
+                    Light::Ambient { slice } => {
+                    let buffer = self.device.create_buffer_init(&util::BufferInitDescriptor {
+                        label: Some("ambient light buffer"),
+                        contents: bytemuck::cast_slice(slice),
+                        usage: BufferUsages::UNIFORM,
+                    });
                     bind_groups_ambient.push(self.device.create_bind_group(&BindGroupDescriptor {
                         layout: &self.light_layout,
                         entries: &[
@@ -748,7 +764,7 @@ impl Context {
             render_pass.set_bind_group(5, &self.scene.sky.bind_group, &[]);
             for light in &self.scene.lights {
                 match light {
-                    Light::Ambient { buffer : _buffer } => {
+                    Light::Ambient { slice : _buffer } => {
                         render_pass.set_bind_group(0, &bind_groups_ambient[index], &[]);
                         render_pass.draw(0..3, 0..1);
                         index += 1;
