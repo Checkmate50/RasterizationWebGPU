@@ -31,3 +31,7 @@ path = "src_lights/main.rs"
 [[bin]]
 name = "lights2"
 path = "src_lights2/main.rs"
+
+[[bin]]
+name = "mesh"
+path = "src_mesh/main.rs"
