@@ -52,7 +52,7 @@ fn main() -> Result<!> {
         let current_time = Instant::now();
 
         if current_time - previous_time >= Duration::new(1, 0) {
-            println!("Current first FPS: {}", frame_count);
+            println!("Current lights2 FPS: {}", frame_count);
             previous_time = Instant::now();
             frame_count = 0;
         }

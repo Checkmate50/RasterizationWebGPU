@@ -68,7 +68,7 @@ impl Context {
                 format,
                 width,
                 height,
-                present_mode: PresentMode::Fifo,
+                present_mode: PresentMode::Immediate,
             });
 
             (device, surface, format, queue)
