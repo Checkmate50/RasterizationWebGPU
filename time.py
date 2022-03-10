@@ -11,7 +11,7 @@ import time
 import asyncio
 
 def help():
-  print("Usage: python time.py number_of_iterations [bin_commands ...]")
+  print("Usage: python time.py number_of_iterations")
 
 # Get results of communicating with the program async
 async def write_results(program : subprocess.Popen[bytes], filename : str):
@@ -29,15 +29,18 @@ async def process_bin(bin : str, iteration: int):
   program = subprocess.Popen(["cargo", "+nightly", "run", "--quiet", "--bin", bin, "resources/scenes/bunnyscene.glb"],
     stdout=subprocess.PIPE, stderr=subprocess.PIPE, encoding="utf8")
   # Actually setup the async operation
-  loop.create_task(write_results(program, "results/" + bin + str(iteration) + ".results"))
+  loop.create_task(write_results(program, "results/" + bin + "_" + str(iteration) + ".results"))
   time.sleep(5) # Some arbitrary wait time
   program.terminate()
 
 def main():
-  if len(sys.argv) < 3 or not sys.argv[1].isdigit():
+  if len(sys.argv) < 2 or not sys.argv[1].isdigit():
     help()
     return
-  bin_commands = sys.argv[2:]
+  bin_commands = []
+  with open("bins_to_run.txt", "r") as f:
+    for line in f:
+      bin_commands.append(line.strip())
   bin_commands *= int(sys.argv[1])
   random.shuffle(bin_commands)
   counts = dict()
