@@ -34,10 +34,6 @@ pub enum LightJSON {
 }
 
 impl LightJSON {
-    pub fn from_bytes(bytes: &[u8]) -> Result<Vec<Self>> {
-        Ok(serde_json::from_slice(&bytes)?) // kinda weird
-    }
-
     pub fn from_file(filename: impl AsRef<Path>) -> Result<Vec<Self>> {
         let json_str = std::fs::read_to_string(filename)?;
         Ok(serde_json::from_str(&json_str)?)

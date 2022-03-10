@@ -1,0 +1,1 @@
+This is a results folder!  This is mostly here so the results folder gets added to Git, but maybe we'll also add some notes on how to read the files if they get more complicated
