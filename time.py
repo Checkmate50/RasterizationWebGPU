@@ -29,8 +29,8 @@ async def process_bin(bin : str, iteration: int):
   program = subprocess.Popen(["cargo", "+nightly", "run", "--quiet", "--bin", bin, "resources/scenes/bunnyscene.glb"],
     stdout=subprocess.PIPE, stderr=subprocess.PIPE, encoding="utf8")
   # Actually setup the async operation
-  loop.create_task(write_results(program, "results/" + bin + "_" + str(iteration) + ".results"))
-  time.sleep(5) # Some arbitrary wait time
+  loop.create_task(write_results(program, "results/" + bin + "_" + str(iteration) + ".result"))
+  time.sleep(300) # Some arbitrary wait time
   program.terminate()
 
 def main():
@@ -38,7 +38,7 @@ def main():
     help()
     return
   bin_commands = []
-  with open("bins_to_run.txt", "r") as f:
+  with open("bins.txt", "r") as f:
     for line in f:
       bin_commands.append(line.strip())
   bin_commands *= int(sys.argv[1])
