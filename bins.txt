@@ -1,5 +1,1 @@
 clean
-lights
-lights2
-sky
-mesh

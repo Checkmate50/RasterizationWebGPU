@@ -1,16 +1,16 @@
 #![feature(never_type)]
 #![feature(map_first_last)]
 
-mod context;
-mod scene;
-mod light;
-mod blur;
-mod texture;
-mod mesh;
-mod camera;
-mod material;
-mod sky;
-mod animation;
+pub mod context;
+pub mod scene;
+pub mod light;
+pub mod blur;
+pub mod texture;
+pub mod mesh;
+pub mod camera;
+pub mod material;
+pub mod sky;
+pub mod animation;
 
 use winit::{
     event_loop::{EventLoop, ControlFlow},
@@ -46,18 +46,11 @@ fn main() -> Result<!> {
     let mut pause_time: Option<Instant> = None;
     let mut elapsed = 0.0;
     let mut previous_time = Instant::now();
-    let mut frame_count = 0;
     event_loop.run(move |event, _, control_flow| {
         
         let current_time = Instant::now();
-
-        if current_time - previous_time >= Duration::new(1, 0) {
-            println!("Current clean FPS: {}", frame_count);
-            previous_time = Instant::now();
-            frame_count = 0;
-        }
-
-        frame_count += 1;
+        println!("{}", (current_time - previous_time).as_nanos());
+        previous_time = Instant::now();
 
         if pause_time == None {
             let now = Instant::now();

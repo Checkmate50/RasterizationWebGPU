@@ -50,14 +50,8 @@ fn main() -> Result<!> {
     event_loop.run(move |event, _, control_flow| {
         
         let current_time = Instant::now();
-
-        if current_time - previous_time >= Duration::new(1, 0) {
-            println!("Current lights1 FPS: {}", frame_count);
-            previous_time = Instant::now();
-            frame_count = 0;
-        }
-
-        frame_count += 1;
+        println!("{}", (current_time - previous_time).as_nanos());
+        previous_time = Instant::now();
 
         if pause_time == None {
             let now = Instant::now();
