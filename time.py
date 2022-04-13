@@ -27,14 +27,14 @@ async def write_results(program : subprocess.Popen[bytes], file : typing.IO):
     file.write("%s\n"%item)
 
 # Get the result of a single file
-async def process_bin(bin : str, file : typing.IO, sleepies : int):
+async def process_bin(bin : str, file : typing.IO):
   loop = asyncio.get_event_loop()
   program = subprocess.Popen(["cargo", "+nightly", "run", "--quiet", "--bin", bin, "resources/scenes/bunnyscene.glb"],
     stdout=subprocess.PIPE, stderr=subprocess.PIPE, encoding="utf8")
   # Actually setup the async operation
-  file.write("---" + bin + str(sleepies) + "---\n")
+  file.write("---" + bin + "---\n")
   loop.create_task(write_results(program, file))
-  time.sleep(sleepies) # Some arbitrary wait time
+  time.sleep(50) # Some arbitrary wait time, apparently 50s is reasonable?
   program.terminate()
 
 def main():
@@ -47,12 +47,11 @@ def main():
       bin_commands.append(line.strip())
   bin_commands *= int(sys.argv[1])
   random.shuffle(bin_commands)
-  filename = datetime.datetime.now().strftime(f"%Y-%m-%d-%H-%m")
+  filename = datetime.datetime.now().strftime(f"%Y-%m-%d-%H-%M")
   with open("results/" + filename + ".result", "w") as file:
     for bin in bin_commands:
-      for sleepies in range(50, 501, 50):
-        print("Processing " + bin + str(sleepies))
-        asyncio.run(process_bin(bin, file, sleepies))
+      print("Processing " + bin)
+      asyncio.run(process_bin(bin, file))
 
 if __name__ == "__main__":
   main()

@@ -88,7 +88,7 @@ def build_histogram_total(data : list[tuple[str, list[list[int]]]]):
     plots = [plt.subplot(len(data)*100+11)]
     for i in range(1,len(data)):
         plots.append(plt.subplot(len(data)*100+11+i, sharex=plots[i-1]))
-    binwidth = int(1e5)
+    binwidth = int(1e4)
     for i in range(len(data)):
         plots[i].hist(means[i], bins = range(int(min(min(means))), int(max(max(means))) + binwidth, binwidth))
         plots[i].set_ylabel(data[i][0], rotation=0)
@@ -104,6 +104,12 @@ def build_histogram(data : list[tuple[str, list[list[int]]]], index : int):
     ax = fig.add_subplot(111)
     binwidth = int(5e6)
     ax.hist(data[index][1], bins = range(int(min(min(data[index][1]))), int(max(max(data[index][1]))) + binwidth, binwidth))
+    plt.show()
+
+def build_line(data : list[tuple[str, list[list[int]]]], index : int):
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+    ax.plot(data[index][1][0])
     plt.show()
 
 def main():
@@ -124,8 +130,10 @@ def main():
         build_scatter(data, index)
     elif plot_type in {"hist", "histogram"}:
         build_histogram(data, index)
+    elif plot_type == "line":
+        build_line(data, index)
     else:
-        print("For the 2nd argument, select box, scatter, or hist")
+        print("For the 2nd argument, select box, scatter, line, or hist")
 
 if __name__=="__main__":
     main()

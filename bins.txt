@@ -1,1 +1,5 @@
 clean
+lights
+lights2
+mesh
+sky
