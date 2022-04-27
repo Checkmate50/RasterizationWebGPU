@@ -45,12 +45,12 @@ fn main() -> Result<!> {
     let mut start_time = Instant::now();
     let mut pause_time: Option<Instant> = None;
     let mut elapsed = 0.0;
-    let mut previous_time = Instant::now();
+    let mut current_time = Instant::now();
     event_loop.run(move |event, _, control_flow| {
         
-        let current_time = Instant::now();
-        println!("{}", (current_time - previous_time).as_nanos());
-        previous_time = Instant::now();
+        
+        println!("{}", current_time.elapsed().as_nanos());
+        current_time = Instant::now();
 
         if pause_time == None {
             let now = Instant::now();
