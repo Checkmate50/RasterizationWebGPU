@@ -1,16 +1,16 @@
 #![feature(never_type)]
 #![feature(map_first_last)]
 
-mod context;
-mod scene;
-mod light;
-mod blur;
-mod texture;
-mod mesh;
-mod camera;
-mod material;
-mod sky;
-mod animation;
+pub mod context;
+pub mod scene;
+pub mod light;
+pub mod blur;
+pub mod texture;
+pub mod mesh;
+pub mod camera;
+pub mod material;
+pub mod sky;
+pub mod animation;
 
 use winit::{
     event_loop::{EventLoop, ControlFlow},
@@ -43,22 +43,22 @@ fn main() -> Result<!> {
     let mut y_accel = 0.0;
     // this time stuff is a bit clunky rn, I wonder if there's a more elegant way
     let mut start_time = Instant::now();
+    let mut measure_time = Instant::now();
     let mut pause_time: Option<Instant> = None;
     let mut elapsed = 0.0;
-    let mut previous_time = Instant::now();
-    let mut frame_count = 0;
+    let mut current_time = Instant::now();
     event_loop.run(move |event, _, control_flow| {
         
-        let current_time = Instant::now();
-        println!("{}", (current_time - previous_time).as_nanos());
-        previous_time = Instant::now();
+        
+        println!("{}", current_time.elapsed().as_nanos());
+        current_time = Instant::now();
 
         if pause_time == None {
             let now = Instant::now();
-            if let Some(duration) = now.checked_duration_since(start_time) {
+            if let Some(duration) = now.checked_duration_since(measure_time) {
                 elapsed = duration.as_secs_f32();
             } else {
-                start_time = Instant::now();
+                measure_time = Instant::now();
                 elapsed = 0.0;
             }
         }
