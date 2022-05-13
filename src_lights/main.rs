@@ -43,7 +43,6 @@ fn main() -> Result<!> {
     let mut y_accel = 0.0;
     // this time stuff is a bit clunky rn, I wonder if there's a more elegant way
     let mut start_time = Instant::now();
-    let mut measure_time = Instant::now();
     let mut pause_time: Option<Instant> = None;
     let mut elapsed = 0.0;
     let mut current_time = Instant::now();
@@ -55,10 +54,10 @@ fn main() -> Result<!> {
 
         if pause_time == None {
             let now = Instant::now();
-            if let Some(duration) = now.checked_duration_since(measure_time) {
+            if let Some(duration) = now.checked_duration_since(start_time) {
                 elapsed = duration.as_secs_f32();
             } else {
-                measure_time = Instant::now();
+                start_time = Instant::now();
                 elapsed = 0.0;
             }
         }
