@@ -31,11 +31,13 @@ def collect_all(filename : str) -> list[list[int]]:
             if line.startswith("---"):
                 name = line[3:-3]
                 if prev_name:
-                    add_to(data, name, to_add)
+                    add_to(data, prev_name, to_add)
                 prev_name = name
                 to_add = []
             else:
                 to_add.append(int(line))
+        if prev_name:
+            add_to(data, prev_name, to_add)
     return data
 
 def build_box_total(data : list[tuple[str, list[list[int]]]]):
