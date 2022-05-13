@@ -47,11 +47,6 @@ fn main() -> Result<!> {
     let mut elapsed = 0.0;
     let mut current_time = Instant::now();
     event_loop.run(move |event, _, control_flow| {
-        
-        
-        println!("{}", current_time.elapsed().as_nanos());
-        current_time = Instant::now();
-
         if pause_time == None {
             let now = Instant::now();
             if let Some(duration) = now.checked_duration_since(start_time) {
@@ -95,6 +90,8 @@ fn main() -> Result<!> {
             },
 
             Event::MainEventsCleared => {
+                println!("{}", current_time.elapsed().as_nanos());
+                current_time = Instant::now();
                 let mut move_mat = Mat3::from_rotation_y((-x_accel as f32).to_radians());
                 let max = Vec3::new(0.0, -y_accel as f32, 0.0);
                 let angle = f32::atan2(state.scene.camera.eye.cross(max).length(), state.scene.camera.eye.dot(max));
